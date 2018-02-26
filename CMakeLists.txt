@@ -11,13 +11,28 @@ set(CMAKE_CXX_STANDARD 11)
 ## list all your executables here (a corresponding .cpp file should exist, e.g. Main.cpp)
 set(my_executables
         Main
+        ProcessSingleSpectrum
         )
 
 
 ## list all classes here, which are required by your executables
 ## (all these classes will be linked into a library)
 set(my_sources
+        ProcessSingleSpectrum.cpp
         main.cpp
+        MultiplexedScan.cpp
+        MultiplexedScan.h
+        PrecursorTargetOption.cpp
+        PrecursorTargetOption.h
+        PrecursorTargetOptions.cpp
+        PrecursorTargetOptions.h
+        NNLSModel.cpp
+        NNLSModel.h
+        MassToleranceUnit.h
+        Util.cpp
+        Util.h
+        DictionaryElement.cpp
+        DictionaryElement.h
         )
 
 
