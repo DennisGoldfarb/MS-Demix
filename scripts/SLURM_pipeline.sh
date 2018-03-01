@@ -15,9 +15,9 @@
 
 # determine number of spectra in file
 #NUMSPECTRA=`less $1 | sed -n 's/.*<spectrumList count=\"\([0-9]*\).*/\1/p'`
-NUMSPECTRA=3000#103284
+#NUMSPECTRA=3000#103284
 
-echo $NUMSPECTRA
+echo "HELLOW SLURM!"$NUMSPECTRA
 
 # process each spectrum
 #i = $SLURM_ARRAY_TASK_ID
