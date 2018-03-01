@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=Demix
+#SBATCH --job-name=demix
 #SBATCH --array=1-1
 #SBATCH --time-min=60
 #SBATCH --mem-per-cpu=4000
@@ -17,7 +17,7 @@
 #NUMSPECTRA=`less $1 | sed -n 's/.*<spectrumList count=\"\([0-9]*\).*/\1/p'`
 #NUMSPECTRA=3000#103284
 
-echo "HELLOW SLURM!"$NUMSPECTRA
+echo "HELLO SLURM!"#$NUMSPECTRA
 
 # process each spectrum
 #i = $SLURM_ARRAY_TASK_ID
