@@ -3,7 +3,7 @@
 #SBATCH --array=1-100
 #SBATCH --time-min=60
 #SBATCH --mem-per-cpu=4000
-#SBATCH -n=4
+#SBATCH --ntasks=4
 #SBATCH --output=/pine/scr/d/e/dennisg/MS-Demix/log/Deconvolution_%A_%a.out
 #SBATCH --error=/pine/scr/d/e/dennisg/MS-Demix/log/Deconvolution_%A_%a.err
 
