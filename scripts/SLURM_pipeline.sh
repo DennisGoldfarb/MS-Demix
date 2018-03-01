@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=Demix
 #SBATCH --array=1-100
-#SBATCH --t=60
+#SBATCH --time-min=60
 #SBATCH --mem-per-cpu=4000
-#SBATCH --n=4
-#SBATCH --o=/pine/scr/d/e/dennisg/MS-Demix/log/Deconvolution_%A_%a.out
-#SBATCH --e=/pine/scr/d/e/dennisg/MS-Demix/log/Deconvolution_%A_%a.err
+#SBATCH -n=4
+#SBATCH --output=/pine/scr/d/e/dennisg/MS-Demix/log/Deconvolution_%A_%a.out
+#SBATCH --error=/pine/scr/d/e/dennisg/MS-Demix/log/Deconvolution_%A_%a.err
 
 module load gcc/4.8.1
 module load matlab
