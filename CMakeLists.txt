@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.5)
 project(Demix)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 ## list all your executables here (a corresponding .cpp file should exist, e.g. Main.cpp)
 set(my_executables
-        Main
+        main
         ProcessSingleSpectrum
         )
 

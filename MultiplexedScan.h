@@ -18,7 +18,7 @@ public :
 
     MultiplexedScan() {};
 
-    MultiplexedScan(OpenMS::MSSpectrum<OpenMS::Peak1D> scan);
+    MultiplexedScan(OpenMS::MSSpectrum scan);
 
     MultiplexedScan(OpenMS::AASequence seqA, OpenMS::AASequence seqB,
                     int chargeA, int chargeB,

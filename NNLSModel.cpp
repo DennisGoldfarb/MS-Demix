@@ -3,7 +3,7 @@
 //
 
 #include <OpenMS/CONCEPT/Constants.h>
-#include <OpenMS/CHEMISTRY/IsotopeSplineDB.h>
+//#include <OpenMS/CHEMISTRY/IsotopeSplineDB.h>
 #include <iostream>
 #include "NNLSModel.h"
 
@@ -29,7 +29,7 @@ NNLSModel::NNLSModel(MultiplexedScan scan, std::vector<PrecursorTargetOptions> o
     init_A();
 }
 
-NNLSModel::NNLSModel(OpenMS::MSSpectrum<OpenMS::Peak1D> scan, PrecursorTargetOptions options, double massTolerance,
+NNLSModel::NNLSModel(OpenMS::MSSpectrum scan, PrecursorTargetOptions options, double massTolerance,
                      MassToleranceUnit unit) {
     this->scan = MultiplexedScan(scan);
     this->options.push_back(options);

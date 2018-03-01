@@ -4,7 +4,7 @@
 
 #include "MultiplexedScan.h"
 
-MultiplexedScan::MultiplexedScan(OpenMS::MSSpectrum<OpenMS::Peak1D> scan)
+MultiplexedScan::MultiplexedScan(OpenMS::MSSpectrum scan)
 {
     for (auto peak : scan)
     {

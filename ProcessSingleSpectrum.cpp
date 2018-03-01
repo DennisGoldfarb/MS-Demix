@@ -3,7 +3,8 @@
 //
 #include <iostream>
 
-#include <OpenMS/FORMAT/MzMLFile.h>
+#include <OpenMS/FORMAT/IndexedMzMLFileLoader.h>
+#include <OpenMS/KERNEL/OnDiscMSExperiment.h>
 #include "Util.h"
 #include "NNLSModel.h"
 
@@ -35,11 +36,12 @@ int main(int argc, char * argv[])
 
     double charge2prob[7] = {0.0, 0.01, 0.5, 0.5, 0.05, 0.03, 0.02};
 
-    OpenMS::MzMLFile mzMLDataFile;
-    OpenMS::MSExperiment<OpenMS::Peak1D> msExperiment;
-    mzMLDataFile.load(mzMLPath, msExperiment);
+    OpenMS::IndexedMzMLFileLoader mzMLDataFile;
+    OpenMS::OnDiscPeakMap map;
+    
+    mzMLDataFile.load(mzMLPath, map);
 
-    OpenMS::MSSpectrum<OpenMS::Peak1D> scan = msExperiment.getSpectrum(scanID);
+    OpenMS::MSSpectrum scan = map.getSpectrum(scanID);
 
     if (scan.getMSLevel() == 2) {
 

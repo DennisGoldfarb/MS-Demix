@@ -26,7 +26,7 @@ public:
 
     NNLSModel(MultiplexedScan scan, PrecursorTargetOptions options, double massTolerance, MassToleranceUnit unit);
 
-    NNLSModel(OpenMS::MSSpectrum<OpenMS::Peak1D> scan, PrecursorTargetOptions options, double massTolerance, MassToleranceUnit unit);
+    NNLSModel(OpenMS::MSSpectrum scan, PrecursorTargetOptions options, double massTolerance, MassToleranceUnit unit);
 
     NNLSModel(MultiplexedScan scan, std::vector<PrecursorTargetOptions> options, double massTolerance, MassToleranceUnit unit);
 
