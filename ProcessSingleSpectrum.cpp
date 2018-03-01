@@ -62,7 +62,9 @@ int main(int argc, char * argv[])
 
         NNLSModel model(scan, options, 20, MassToleranceUnit::PPM);
 
-        model.writeModel("/Users/dennisg/Documents/Manuscripts/Deconvolution/Src/", argv[2]);
+	std::cout << "MS2 scan: " << scanID << std::endl;
+
+        model.writeModel(outPath, argv[2]);
     }
 
     return 0;
