@@ -1,4 +1,6 @@
 function demix(path, expName, algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass)
+    % setup cvx
+    install_cvx()
     % read in vector b
     fileID = fopen(strcat(path, 'b_', expName, '.bin'));
     b = (fread(fileID, 'double'));
@@ -46,19 +48,32 @@ function demix(path, expName, algName, lambda1, lambda2, alpha, deisotope, calcP
     elseif strcmp(algName, 'NNLS-wL1-wLinf')
         [x, cvx_status] = NNLS_weighted_L1_weighted_group_inf(A, b, m, groupWeights, indices, lambda1);
     elseif strcmp(algName, 'NNLS-sparseGroupLasso')
-        [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, indices, lambda1, alpha);
+        [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, indices, lambda1, lambda2, alpha);
     end
     
-    if strcmp(cvx_status, 'Solved')
+    %if strcmp(cvx_status, 'Solved')
       %    outputCoefficients(A, x, b, indices, precursorOptions, algName, expName); 
+    %end
+
+    if strcmp(cvx_status, 'Solved')
+        if deisotope
+            spectra = computeMonoSpectra(A, x, indices);
+        else
+            spectra = computeSpectra(A, x, indices);
+        end
+
+        writeMGF(spectra, precursorOptions, calcPrecursorMass);
+        %plotSpectra(spectra, b, precursorOptions, algName, expName, path);
     end
-    
-    spectra = computeMonoSpectra(A, x, indices);
-    outputMonoSpectra(spectra, b, precursorOptions, algName, expName);
 end
 
 
-
+function install_cvx()
+    currentDir = pwd
+    cd /nas/longleaf/home/dennisg/cvx/cvx
+    cvx_setup
+    cd(currentDir)
+end
 
 function [x, cvx_status] = OLS(A, b, m)
     cvx_begin
@@ -211,7 +226,7 @@ function [x, cvx_status] = NNLS_weighted_L1_weighted_group_inf(A, b, m, groupWei
 end
 
 % NNLS sparse group lasso
-function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, indices, lambda, alpha)
+function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, indices, lambda1, lambda2, alpha)
     cvx_begin
         cvx_solver_settings('maxit', 1000);
      
@@ -226,7 +241,7 @@ function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, ind
             p = sqrt(i2-i1);
             
             %objective = objective + (1/(2*n))*sum_square_pos(norm(A(:,i1:i2)*x(i1:i2) - b)) +  groupWeights(i)*(1-alpha)*lambda*p*(norm(x(i1:i2))) + groupWeights(i)*alpha*lambda*norm(x(i1:i2),1);
-            objective = objective + 0.1 * norm(A(:,i1:i2)*x(i1:i2) - b) + groupWeights(i)*(1-alpha)*lambda*(norm(x(i1:i2)) + groupWeights(i)*alpha*lambda*norm(x(i1:i2),1));
+            objective = objective + lambda1 * norm(A(:,i1:i2)*x(i1:i2) - b) + groupWeights(i)*(1-alpha)*lambda2*(norm(x(i1:i2)) + groupWeights(i)*alpha*lambda2*norm(x(i1:i2),1));
             %objective = objective + groupWeights(i)*(1-alpha)*lambda*p*(norm(x(i1:i2))) + groupWeights(i)*alpha*lambda*norm(xi,1);
             
         end
@@ -236,6 +251,37 @@ function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, ind
             %A*x <= 2*b;
             %x <= 1;
     cvx_end
+end
+
+function writeMGF(spectra, precursorOptions, calcPrecursorMass)
+    for i=1:size(spectra,2)
+        writeMGF(spectra(:,i), precursorOptions(i.:));    
+    end
+end
+
+function writeMGF(spectrum, precursorOption, mzValues, spectrumDetails)
+    fprintf(fileID, 'BEGIN IONS\n');
+    fprintf(fileID, 'TITLE=%s File:\"%s\", NativeID:\"%s\"\n', title, filename, nativeID);
+    fprintf(fileID, 'RTINSECONDS=%s\n', rt);
+    fprintf(fileID, 'PEPMASS=%f %f\n', mass, intensity);
+    fprintf(fileID, 'CHARGE=%d+\n', charge);
+
+    for i=1:size(spectrum,1)
+        if spectrum(i) > 1
+            fprintf(fileID, '%f %f\n', spectrum(i), mzValues(i));
+        end
+    end
+
+    fprintf(fileID, 'END IONS\n');
+    %TITLE=HELA_2017-10-25_CID25_OT.11.11.3 File:"HELA_2017-10-25_CID25_OT.raw", NativeID:"controllerType=0 controllerNumber=1 scan=11"
+end
+
+
+function spectra = computeSpectra(A, x, indices)
+    spectra = zeros(size(A,1), size(indices,1));
+    for i=1:size(indices,1)
+        spectra(:,i) = A(:, indices(i,1)+1:indices(i,2)+1) * x(indices(i,1)+1:indices(i,2)+1);
+    end    
 end
 
 function spectra = computeMonoSpectra(A, x, indices)
@@ -299,7 +345,7 @@ function outputCoefficients(A, x, b, indices, precursorOptions, algName, expName
 end
 
 
-function outputMonoSpectra(spectra, b, precursorOptions, algName, expName)
+function plotSpectra(spectra, b, precursorOptions, algName, expName, path)
     set(gcf, 'PaperPosition', [0 0 20 200])    % can be bigger than screen 
     set(gcf, 'PaperSize', [20 200])    % Same, but for PDF output
     
@@ -316,7 +362,7 @@ function outputMonoSpectra(spectra, b, precursorOptions, algName, expName)
     for i=1:size(spectra,2)
         spectrum = spectra(:,i);
         % replace values <1 with 0
-        spectrum(spectrum<0) = 0;
+        spectrum(spectrum<1) = 0;
         TIC = sum(spectrum);
         basePeak = max(spectrum);
         
@@ -326,7 +372,7 @@ function outputMonoSpectra(spectra, b, precursorOptions, algName, expName)
         title(opt2title(precursorOptions(i,:), TIC, basePeak, 0), 'FontSize', 16);
     end
 
-    saveas(f, strcat('demixed_', expName, '_', algName), 'epsc')
+    saveas(f, strcat(path,'/demixed_', expName, '_', algName), 'epsc')
 end
 
 
