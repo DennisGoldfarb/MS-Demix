@@ -26,7 +26,7 @@ void writeScan(OpenMS::MSSpectrum &scan, std::string outPath, int scanID, double
 {
     std::ofstream out(outPath + std::to_string(scanID) + ".tab");
 
-    out << scan.getName() << "\t" << scan.getSourceFile() << "\t" << scanID << "\t" << monoMass << "\t" << z << "\t" << scan.getRT() << std::endl;
+    out << scan.getName() << "\t" << scan.getName() << "\t" << scanID << "\t" << monoMass << "\t" << z << "\t" << scan.getRT() << std::endl;
 
     out.close();
 }
