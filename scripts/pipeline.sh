@@ -15,7 +15,7 @@ mkdir -p ${ROOT_OUT_DIR}
 
 cd ${SOURCE_DIR}/matlab/
 
-fileMz=HELA_2017-10-24_CID_OT.mzML
+filename=HELA_2017-10-24_CID_OT
 # determine number of spectra in file
 #NUMSPECTRA=`less $1 | sed -n 's/.*<spectrumList count=\"\([0-9]*\).*/\1/p'`
 NUMSPECTRA=1000
@@ -30,7 +30,7 @@ do
     echo "STARTING SCRIPT AT:" $i
 
     # generate model
-    ${BUILD_DIR}/ProcessSingleSpectrum ${DATA_DIR}/${fileMZ} $i $numPer 2 3 4 ${ROOT_OUT_DIR}
+    ${BUILD_DIR}/ProcessSingleSpectrum ${DATA_DIR}/${filename}.mzML $i $numPer 2 3 4 ${ROOT_OUT_DIR}
 
     for j in `seq 0 $(($numPer-1))`;
     do	
@@ -50,20 +50,23 @@ do
 	calcPrecursorMass=1
 	globalTol=0.02
 
-        outPath=${ROOT_OUT_DIR}/$filename/${algName}/${lambda1}_${lambda2}_${alpha}_${deisotope}_${calcPrecursorMass}/
+        outPath=${ROOT_OUT_DIR}/${filename}/${algName}/${lambda1}_${lambda2}_${alpha}_${deisotope}_${calcPrecursorMass}/
 	
-        param="demix("${outPath}"','"${ROOT_OUT_DIR}"','"${scanID}"','"${algName}"',"${lambda1}","${lambda2}","${alpha}","${deisotope}","${calcPrecursorMass}","${globalTol}");quit force"
+        param="demix('"${outPath}"','"${ROOT_OUT_DIR}"','"${scanID}"','"${algName}"',"${lambda1}","${lambda2}","${alpha}","${deisotope}","${calcPrecursorMass}","${globalTol}");quit force"
 	matlab -nodesktop -nosplash -r $param
     
-	# execute crux
+	# execute crux on each demixed spectrum
 	for f in ${outPath}/${scanID}_*;
 	do
-	    filename=$(basename "$f" .mgf)
-	    tol="${filename##*_}"
-	    ${CRUX_PATH}/crux tide-search --precursor-window tol --overwrite T --numThreads=1 --pin-output T --output-dir ${outPath}/crux-output/${filename} $f $TIDE_INDEX 
+	    name=$(basename "$f" .mgf)
+	    tol="${name##*_}"
+	    ${CRUX_PATH}/crux tide-search --precursor-window tol --overwrite T --num-threads=1 --pin-output T --output-dir ${outPath}/crux-output/${name} $f $TIDE_INDEX 
 
-	    tail -n +2 -q ${outPath}/crux-output/${filename}/tide-search.target.pin >> ${outPath}/tide-search.${SLURM_ARRAY_TASK_ID}.target.pin
-            tail -n +2 -q ${outPath}/crux-output/${filename}/tide-search.decoy.pin >> ${outPath}/tide-search.${SLURM_ARRAY_TASK_ID}.decoy.pin
+	    tail -n +2 -q ${outPath}/crux-output/${name}/tide-search.target.pin >> ${outPath}/tide-search.${SLURM_ARRAY_TASK_ID}.target.pin
+            tail -n +2 -q ${outPath}/crux-output/${name}/tide-search.decoy.pin >> ${outPath}/tide-search.${SLURM_ARRAY_TASK_ID}.decoy.pin
+	    
+	    # clean up
+	    rm -r ${outPath}/crux-output/${name}
 	done
 
 
