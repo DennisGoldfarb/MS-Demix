@@ -51,6 +51,7 @@ do
 	globalTol=0.02
 
         outPath=${ROOT_OUT_DIR}/${filename}/${algName}/${lambda1}_${lambda2}_${alpha}_${deisotope}_${calcPrecursorMass}/
+	mkdir -p $outPath
 	
         param="demix('"${outPath}"','"${ROOT_OUT_DIR}"','"${scanID}"','"${algName}"',"${lambda1}","${lambda2}","${alpha}","${deisotope}","${calcPrecursorMass}","${globalTol}");quit force"
 	matlab -nodesktop -nosplash -r $param
@@ -60,7 +61,7 @@ do
 	do
 	    name=$(basename "$f" .mgf)
 	    tol="${name##*_}"
-	    ${CRUX_PATH}/crux tide-search --precursor-window tol --overwrite T --num-threads=1 --pin-output T --output-dir ${outPath}/crux-output/${name} $f $TIDE_INDEX 
+	    ${CRUX_PATH}/crux tide-search --precursor-window $tol --overwrite T --num-threads 1 --pin-output T --output-dir ${outPath}/crux-output/${name} $f $TIDE_INDEX 
 
 	    tail -n +2 -q ${outPath}/crux-output/${name}/tide-search.target.pin >> ${outPath}/tide-search.${SLURM_ARRAY_TASK_ID}.target.pin
             tail -n +2 -q ${outPath}/crux-output/${name}/tide-search.decoy.pin >> ${outPath}/tide-search.${SLURM_ARRAY_TASK_ID}.decoy.pin
