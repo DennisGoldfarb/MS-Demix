@@ -118,7 +118,6 @@ void NNLSModel::init_b()
             }
             itrMz = mzValues.insert(itrMz, isotopes[isotopeIndex]);
             itrB = b.insert(itrB, 0.0);
-
         }
 
         // move back to center

@@ -1,4 +1,4 @@
-function demix(path, expName, algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass)
+function demix(outPath, path, expName, algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol)
     % setup cvx
     install_cvx()
     % read in vector b
@@ -12,7 +12,7 @@ function demix(path, expName, algName, lambda1, lambda2, alpha, deisotope, calcP
     fclose(fileID);
     A = reshape(A, n, []);
     m = size(A,2);
-    
+
     % read in start/end indices of precursor options in A
     fileID = fopen(strcat(path, 'indices_', expName, '.bin'));
     indices = fread(fileID, 'int32');
@@ -24,6 +24,10 @@ function demix(path, expName, algName, lambda1, lambda2, alpha, deisotope, calcP
     fclose(fileID);
     % read in precursor option titles
     precursorOptions = importdata(strcat(path, 'precursorOptions_', expName, '.tab'));
+    % read in scan details
+    scanDetails = importdata(strcat(path, expName, '.tab'));
+    % read in mzValues
+    mzValues = importdata(strcat(path, 'mz_', expName, '.tab'));
 
     if strcmp(algName, 'OLS')
         [x, cvx_status] = OLS(A, b, m);
@@ -62,9 +66,13 @@ function demix(path, expName, algName, lambda1, lambda2, alpha, deisotope, calcP
             spectra = computeSpectra(A, x, indices);
         end
 
-        writeMGF(spectra, precursorOptions, calcPrecursorMass);
-        %plotSpectra(spectra, b, precursorOptions, algName, expName, path);
+        writeMGF(spectra, mzValues, precursorOptions, calcPrecursorMass, scanDetails, outPath, globalTol);
+        %plotSpectra(spectra, b, precursorOptions, algName, expName, outPath);
+    else
+        writeOriginalMGF(b, mzValues, scanDetails, outPath, globalTol);
     end
+
+
 end
 
 
@@ -248,32 +256,77 @@ function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, ind
         minimize(objective);
         subject to
             x >= 0;
-            %A*x <= 2*b;
-            %x <= 1;
     cvx_end
 end
 
-function writeMGF(spectra, precursorOptions, calcPrecursorMass)
+function writeMGF(spectra, mzValues, precursorOptions, calcPrecursorMass, scanDetails, path, globalTol)
+    spectra(spectra<1) = 0;
     for i=1:size(spectra,2)
-        writeMGF(spectra(:,i), precursorOptions(i.:));    
+        if sum(spectra(:, i)) > 0
+            writeMGFSpectrum(spectra(:,i), precursorOptions(i,:), mzValues, scanDetails, num2str(i), calcPrecursorMass, path, globalTol);    
+        end
     end
 end
 
-function writeMGF(spectrum, precursorOption, mzValues, spectrumDetails)
+function writeOriginalMGF(b, mzValues, scanDetails, outPath, globalTol)
+    intensity = 0;
+    rt = scanDetails(4);
+    charge = scanDetails(3);
+    mass = scanDetails(2);
+    title = strcat(['scan=', num2str(scanDtails(1)), ' demixed=original, charge=', num2str(charge), ' mass=', num2str(mass)]);
+    nativeID = title;
+    tol = num2str(globalTol); 
+
+    filename = strcat(num2str(scanDetails(1)), '_', ori, '_', tol, '.mgf');
+    fileID = fopen(strcat(path, '/', filename), 'w');
+
+    writeMGFHeader(fileID, title, filename, nativeID, mass, intensity, charge, rt, b, mzValues, scanDtails(1), 0);
+
+    fclose(fileID);    
+end
+
+function writeMGFHeader(fileID, title, filename, nativeID, mass, intensity, charge, rt, spectrum, mzValues, scanID, demixID)
     fprintf(fileID, 'BEGIN IONS\n');
     fprintf(fileID, 'TITLE=%s File:\"%s\", NativeID:\"%s\"\n', title, filename, nativeID);
     fprintf(fileID, 'RTINSECONDS=%s\n', rt);
     fprintf(fileID, 'PEPMASS=%f %f\n', mass, intensity);
     fprintf(fileID, 'CHARGE=%d+\n', charge);
+    fprintf(fileID, 'SCANS=%d\n', scanID*100 + demixID);
 
-    for i=1:size(spectrum,1)
-        if spectrum(i) > 1
-            fprintf(fileID, '%f %f\n', spectrum(i), mzValues(i));
+    for j=1:size(spectrum,1)
+        if spectrum(j) >= 1
+            fprintf(fileID, '%f %f\n', mzValues(j), spectrum(j));
         end
     end
 
     fprintf(fileID, 'END IONS\n');
-    %TITLE=HELA_2017-10-25_CID25_OT.11.11.3 File:"HELA_2017-10-25_CID25_OT.raw", NativeID:"controllerType=0 controllerNumber=1 scan=11"
+end
+
+function writeMGFSpectrum(spectrum, precursorOption, mzValues, scanDetails, i, calcPrecursorMass, path, globalTol)
+
+    intensity = 0;
+    rt = scanDetails(4);
+
+    if calcPrecursorMass
+        charge = precursorOption(5);
+        mass = (precursorOption(1)+precursorOption(2))/2;
+        tol = num2str(globalTol+(precursorOption(2)-precursorOption(1))/2);
+        title = strcat(['scan=', num2str(scanDetails(1)), ' demixed=', i, ' charge=', num2str(charge), ' minMass=', num2str(precursorOption(1)), ' maxMass=', num2str(precursorOption(2)), ' minIso=', num2str(precursorOption(3)), ' maxIso=', num2str(precursorOption(4))])
+        nativeID = title;
+    else
+        charge = scanDetails(3);
+        mass = scanDetails(2);
+        tol = num2str(globalTol);
+        title = strcat(['scan=', num2str(scanDetails(1)), ' demixed=', i, ' charge=', num2str(precursorOption(5)), ' minMass=', num2str(precursorOption(1)), ' maxMass=', num2str(precursorOption(2)), ' minIso=', num2str(precursorOption(3)), ' maxIso=', num2str(precursorOption(4))]);
+        nativeID = strcat(['scan=', num2str(scanDetails(1)), ' demixed=', i, ' charge=', num2str(charge), ' mass=', num2str(mass)]);
+    end
+
+    filename = strcat(num2str(scanDetails(1)), '_', i, '_', tol, '.mgf');
+    fileID = fopen(strcat(path, '/', filename), 'w');
+
+    writeMGFHeader(fileID, title, filename, nativeID, mass, intensity, charge, rt, spectrum, mzValues, scanDetails(1), str2num(i));
+
+    fclose(fileID);
 end
 
 
