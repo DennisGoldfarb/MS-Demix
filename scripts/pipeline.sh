@@ -68,6 +68,7 @@ do
 	    
 	    # clean up
 	    rm -r ${outPath}/crux-output/${name}
+	    rm $f
 	done
 
 
