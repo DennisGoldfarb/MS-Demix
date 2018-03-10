@@ -21,5 +21,4 @@ globalTol=0.02
 
 outPath=${ROOT_OUT_DIR}/${filename}/${algName}/${lambda1}_${lambda2}_${alpha}_${deisotope}_${calcPrecursorMass}/
 
-cd outPath
-rm $outPath
+rm -r $outPath
