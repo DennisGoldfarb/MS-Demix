@@ -33,7 +33,8 @@ set(my_sources
         Util.h
         DictionaryElement.cpp
         DictionaryElement.h
-        )
+        HardklorEntry.cpp
+        HardklorEntry.h)
 
 
 ## find OpenMS configuration and register target "OpenMS" (our library)
