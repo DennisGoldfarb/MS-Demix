@@ -15,12 +15,12 @@
 #include "HardklorEntry.h"
 
 void usage() {
-    std::cout << "usage: ProcessSingleSpectrum mzML_file hardklor_file scan_ID numScans minZ maxZ maxIso output_directory"
+    std::cout << "usage: ProcessSingleSpectrum mzML_file hardklor_file scanStart numJobs minZ maxZ maxIso output_directory"
               << std::endl;
     std::cout << "\tmzML_file: path to input .mzML file " << std::endl;
     std::cout << "\thardklor_file: path to input hardklor results file " << std::endl;
-    std::cout << "\tscan_ID: first scan_ID to process." << std::endl;
-    std::cout << "\tnumScans: number of scans to process." << std::endl;
+    std::cout << "\tscanStart: first scan_ID to process." << std::endl;
+    std::cout << "\tnumJobs: number of current jobs performed." << std::endl;
     std::cout << "\tminZ: min precursor charge state to consider." << std::endl;
     std::cout << "\tmaxZ: max precursor charge state to consider." << std::endl;
     std::cout << "\tmaxIso: max precursor isotope to consider." << std::endl;
@@ -137,8 +137,8 @@ int main(int argc, char *argv[]) {
 
     std::string mzMLPath = argv[1];
     std::string hardklorPath = argv[2];
-    int scanID = atoi(argv[3]);
-    int numScans = atoi(argv[4]);
+    int scanStart = atoi(argv[3]);
+    int numJobs = atoi(argv[4]);
     int minZ = atoi(argv[5]);
     int maxZ = atoi(argv[6]);
     int maxIso = atoi(argv[7]);
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
 
     int previousMS1ScanID = 1, lastP = 0, numChimera = 0;
 
-    for (int i = std::max(0, scanID-50); i < scanID; ++i)
+    for (int i = std::max(0, scanStart-50); i < scanStart; ++i)
     {
       OpenMS::MSSpectrum scan = map.getSpectrum(i);
       if (scan.getMSLevel() == 1)
@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
 	}
     } 
 
-    for (int i = scanID; i < scanID + numScans; ++i)
+    for (int i = scanStart; i < map.size(); i+=numJobs)
     {
         OpenMS::MSSpectrum scan = map.getSpectrum(i);
 
@@ -196,7 +196,7 @@ int main(int argc, char *argv[]) {
 
                 NNLSModel model(scan, options, 20, MassToleranceUnit::PPM);
 
-                model.writeModel(outPath, std::to_string(i));
+                model.writeModel(outPath, std::to_string(i+1));
                 writeScan(scan, outPath, i+1, monoMass, precursorInfo.getCharge());
 		
 		numChimera++;
