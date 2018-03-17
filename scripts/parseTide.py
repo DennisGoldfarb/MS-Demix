@@ -4,7 +4,7 @@ import sys
 infile = open(sys.argv[1])
 writeHeader = sys.argv[2]
 
-header = infile.readline().split("\t")
+header = infile.readline().strip().split("\t")
 
 numCol = len(header)
 

@@ -1,6 +1,14 @@
-function demix(outPath, path, expName, algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol)
+function demix(outPath, path, specStart, numPer, algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol)
     % setup cvx
     install_cvx()
+  for i=specStart:(specStart+numPer)
+        if exist(strcat(path, num2str(i), '.tab'), 'file')
+            demix_spectrum(outPath, path, num2str(i), algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol);
+        end
+    end
+end
+
+function demix_spectrum(outPath, path, expName, algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol)
     % read in vector b
     fileID = fopen(strcat(path, 'b_', expName, '.bin'));
     b = (fread(fileID, 'double'));
@@ -19,9 +27,9 @@ function demix(outPath, path, expName, algName, lambda1, lambda2, alpha, deisoto
     indices = reshape(indices,2,[])';
     fclose(fileID);
     % read in group weights of precursor options in A
-    fileID = fopen(strcat(path, 'groupWeights_', expName, '.bin'));
-    groupWeights = 1./fread(fileID, 'double');
-    fclose(fileID);
+    %fileID = fopen(strcat(path, 'groupWeights_', expName, '.bin'));
+    %groupWeights = 1./fread(fileID, 'double');
+    %fclose(fileID);
     % read in precursor option titles
     precursorOptions = importdata(strcat(path, 'precursorOptions_', expName, '.tab'));
     % read in scan details
@@ -77,7 +85,7 @@ end
 
 
 function install_cvx()
-    currentDir = pwd
+    currentDir = pwd;
     cd /nas/longleaf/home/dennisg/cvx/cvx
     cvx_setup
     cd(currentDir)
@@ -288,7 +296,7 @@ end
 function writeMGFHeader(fileID, title, filename, nativeID, mass, intensity, charge, rt, spectrum, mzValues, scanID, demixID)
     fprintf(fileID, 'BEGIN IONS\n');
     fprintf(fileID, 'TITLE=%s File:\"%s\", NativeID:\"%s\"\n', title, filename, nativeID);
-    fprintf(fileID, 'RTINSECONDS=%s\n', rt);
+    %fprintf(fileID, 'RTINSECONDS=%s\n', rt);
     fprintf(fileID, 'PEPMASS=%f %f\n', mass, intensity);
     fprintf(fileID, 'CHARGE=%d+\n', charge);
     fprintf(fileID, 'SCANS=%d\n', scanID*100 + demixID);
@@ -311,7 +319,7 @@ function writeMGFSpectrum(spectrum, precursorOption, mzValues, scanDetails, i, c
         charge = precursorOption(5);
         mass = (precursorOption(1)+precursorOption(2))/2;
         tol = num2str(globalTol+(precursorOption(2)-precursorOption(1))/2);
-        title = strcat(['scan=', num2str(scanDetails(1)), ' demixed=', i, ' charge=', num2str(charge), ' minMass=', num2str(precursorOption(1)), ' maxMass=', num2str(precursorOption(2)), ' minIso=', num2str(precursorOption(3)), ' maxIso=', num2str(precursorOption(4))])
+        title = strcat(['scan=', num2str(scanDetails(1)), ' demixed=', i, ' charge=', num2str(charge), ' minMass=', num2str(precursorOption(1)), ' maxMass=', num2str(precursorOption(2)), ' minIso=', num2str(precursorOption(3)), ' maxIso=', num2str(precursorOption(4))]);
         nativeID = title;
     else
         charge = scanDetails(3);

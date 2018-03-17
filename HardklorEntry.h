@@ -5,6 +5,9 @@
 #ifndef DEMIX_HARDKLORENTRY_H
 #define DEMIX_HARDKLORENTRY_H
 
+#include <iostream>
+
+#include "OpenMS/CONCEPT/Constants.h"
 
 class HardklorEntry {
 
@@ -13,7 +16,7 @@ public:
     {
         this->scanID = scanID;
         this->charge = charge;
-        minMz = monoMass / charge;
+        minMz = (monoMass / charge) + OpenMS::Constants::PROTON_MASS_U;
         maxMz = minMz + (maxIso / (double) charge);
     }
 

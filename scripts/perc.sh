@@ -8,15 +8,6 @@
 
 source ./config.sh
 
-filename=HELA_2017-10-24_CID_OT
-
-algName='NNLS-sparseGroupLasso'
-lambda1=0.1
-lambda2=0.1
-alpha=0.5
-deisotope=1
-calcPrecursorMass=1
-
 outPath=${ROOT_OUT_DIR}/${filename}/${algName}/${lambda1}_${lambda2}_${alpha}_${deisotope}_${calcPrecursorMass}/
 
 # merge tide-search results

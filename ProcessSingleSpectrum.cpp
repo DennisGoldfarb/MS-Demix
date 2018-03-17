@@ -55,8 +55,11 @@ std::vector<HardklorEntry> parseHardklor(std::string hardklorPath, int maxIso)
         if (label == 'P')
         {
             iss >> monoMass >> charge;
-            HardklorEntry precursor(scanID, charge, monoMass, maxIso);
-            precursors.push_back(precursor);
+	    if (charge > 1)
+	    {
+                HardklorEntry precursor(scanID, charge, monoMass, maxIso);
+                precursors.push_back(precursor);
+            }
         } else {
             iss >> scanID;
         }
@@ -65,15 +68,16 @@ std::vector<HardklorEntry> parseHardklor(std::string hardklorPath, int maxIso)
     return precursors;
 }
 
-void getPrecursorOptionsFromHardklor(int minCharge, int maxCharge, int maxIsotope,
+int getPrecursorOptionsFromHardklor(int minCharge, int maxCharge, int maxIsotope,
                                      double isolationWidth, double isolationCenter,
-                                     int previousMS1ScanID, PrecursorTargetOptions &options, std::vector<HardklorEntry> &precursors)
+				    int previousMS1ScanID, PrecursorTargetOptions &options, std::vector<HardklorEntry> &precursors, int MS2scanID, int lastP)
 {
     double isoLeft = isolationCenter - (isolationWidth / 2);
     double isoRight = isolationCenter + (isolationWidth / 2);
 
+    //bool targetFound = false;
     // find flanking MS1 scans
-    for (int i = 0; i < precursors.size(); ++i)
+    for (int i = lastP; i < precursors.size(); ++i)
     {
         HardklorEntry precursor = precursors[i];
 
@@ -98,16 +102,29 @@ void getPrecursorOptionsFromHardklor(int minCharge, int maxCharge, int maxIsotop
                         if (isotopeIndex < firstIsotope) firstIsotope = isotopeIndex;
                         if (isotopeIndex > lastIsotope) lastIsotope = isotopeIndex;
                     }
+		}
+		PrecursorTargetOption option(monoMass, monoMass, precursor.charge, firstIsotope, lastIsotope, 1.0);
 
-                    PrecursorTargetOption option(monoMass, monoMass, precursor.charge, firstIsotope, lastIsotope, 1.0);
+		//std::cerr << "DEBUG: " << precursor.scanID << " " << monoMass << " " << precursor.charge << " " << firstIsotope << " " << lastIsotope << " " << isoLeft << " " << isoRight << " " << precursor.minMz << " " << precursor.maxMz << std::endl;
 
-                    if (!options.hasOption(option))
-                    {
-                        options.addOption(option);
-                    }
-                }
+		if (!options.hasOption(option))
+		{
+		    options.addOption(option);
+		} 
+		//else 
+		//{
+		//    targetFound = true;
+		//}
             }
         }
+
+	else if (precursor.scanID > previousMS1ScanID)
+	{
+	  //if (!targetFound) {
+	  //  std::cout << "NOT FOUND: " << precursor.scanID << " " << MS2scanID << " " << previousMS1ScanID << std::endl;
+	  //}
+	  return i-500;
+	}
     }
 }
 
@@ -138,7 +155,16 @@ int main(int argc, char *argv[]) {
 
     std::vector<HardklorEntry> precursors = parseHardklor(hardklorPath, maxIso);
 
-    int previousMS1ScanID = 1;
+    int previousMS1ScanID = 1, lastP = 0, numChimera = 0;
+
+    for (int i = std::max(0, scanID-50); i < scanID; ++i)
+    {
+      OpenMS::MSSpectrum scan = map.getSpectrum(i);
+      if (scan.getMSLevel() == 1)
+	{
+	  previousMS1ScanID = i+1;
+	}
+    } 
 
     for (int i = scanID; i < scanID + numScans; ++i)
     {
@@ -146,7 +172,7 @@ int main(int argc, char *argv[]) {
 
         if (scan.getMSLevel() == 2)
         {
-            std::cout << "MS2 scan: " << i << std::endl;
+            std::cout << "MS2 scan: " << i+1 << std::endl;
 
             const OpenMS::Precursor precursorInfo = scan.getPrecursors()[0];
 
@@ -159,24 +185,28 @@ int main(int argc, char *argv[]) {
             PrecursorTargetOption target(monoMass, monoMass, precursorInfo.getCharge(), 0, maxIsolatedIso, 1.0);
 
             PrecursorTargetOptions options;
-            options.addOption(target);
+            //options.addOption(target);
 
-            getPrecursorOptionsFromHardklor(minZ, maxZ, maxIso, isolationWidth, isolationCenter, previousMS1ScanID, options, precursors);
+            lastP = getPrecursorOptionsFromHardklor(minZ, maxZ, maxIso, isolationWidth, isolationCenter, previousMS1ScanID, options, precursors, i+1, lastP);
             //Util::populateOptionsForIsolationWindow(minZ, maxZ, maxIso, charge2prob, isolationWidth, isolationCenter, options);
 
             if (options.key2option.size() > 1)
             {
+                std::cout << "Chimeric Scan: " << i << " " << options.key2option.size() << std::endl;
+
                 NNLSModel model(scan, options, 20, MassToleranceUnit::PPM);
 
                 model.writeModel(outPath, std::to_string(i));
-                writeScan(scan, outPath, i, monoMass, precursorInfo.getCharge());
+                writeScan(scan, outPath, i+1, monoMass, precursorInfo.getCharge());
+		
+		numChimera++;
             }
         }
         else
         {
-            previousMS1ScanID = i;
+            previousMS1ScanID = i+1;
         }
     }
 
-    return 0;
+    return numChimera;
 }

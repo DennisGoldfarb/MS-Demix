@@ -345,7 +345,7 @@ void NNLSModel::writeModel(std::string path, std::string expName)
     writeMatrixA(path + "A_" + expName + ".bin");
     writeVectorB(path + "b_" + expName + ".bin");
     writePrecursorOptionIndices(path + "indices_" + expName + ".bin");
-    writePrecursorOptionGroupWeights(path + "groupWeights_" + expName + ".bin");
+    //writePrecursorOptionGroupWeights(path + "groupWeights_" + expName + ".bin");
     //writePrecursorOptionIndividualWeights(path + "individualWeights_" + expName + ".bin");
     writeMZs(path + "mz_" + expName + ".tab");
     writePrecursorOptions(path + "precursorOptions_" + expName + ".tab");
