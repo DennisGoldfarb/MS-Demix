@@ -68,8 +68,8 @@ int main(int argc, char * argv[])
 
     PrecursorTargetOptions optionsA, optionsB;
 
-    PrecursorTargetOption targetA(scan.seqA.getMonoWeight(), scan.seqA.getMonoWeight(), scan.chargeA, scan.minIsoA, scan.maxIsoA, 1.0);
-    PrecursorTargetOption targetB(scan.seqB.getMonoWeight(), scan.seqB.getMonoWeight(), scan.chargeB, scan.minIsoB, scan.maxIsoB, 1.0);
+    PrecursorTargetOption targetA(scan.seqA.getMonoWeight(), scan.seqA.getMonoWeight(), scan.chargeA, scan.minIsoA, scan.maxIsoA, 1.0, 1.0);
+    PrecursorTargetOption targetB(scan.seqB.getMonoWeight(), scan.seqB.getMonoWeight(), scan.chargeB, scan.minIsoB, scan.maxIsoB, 1.0, 1.0);
 
 
     if (mode == 0) // only use targets

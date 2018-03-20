@@ -6,6 +6,7 @@
 #include <string>
 #include <sstream>
 
+#include <OpenMS/CHEMISTRY/IsotopeDistribution.h>
 #include <OpenMS/FORMAT/IndexedMzMLFileLoader.h>
 #include <OpenMS/KERNEL/OnDiscMSExperiment.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
@@ -45,7 +46,7 @@ std::vector<HardklorEntry> parseHardklor(std::string hardklorPath, int maxIso)
     std::string line;
     char label;
     int scanID, charge;
-    double monoMass;
+    double monoMass, intensity;
 
     while (std::getline(in, line))
     {
@@ -54,10 +55,10 @@ std::vector<HardklorEntry> parseHardklor(std::string hardklorPath, int maxIso)
         iss >> label;
         if (label == 'P')
         {
-            iss >> monoMass >> charge;
+	  iss >> monoMass >> charge >> intensity;
 	    if (charge > 1)
 	    {
-                HardklorEntry precursor(scanID, charge, monoMass, maxIso);
+	      HardklorEntry precursor(scanID, charge, monoMass, maxIso, intensity);
                 precursors.push_back(precursor);
             }
         } else {
@@ -68,20 +69,38 @@ std::vector<HardklorEntry> parseHardklor(std::string hardklorPath, int maxIso)
     return precursors;
 }
 
+double getTotalAbundance(OpenMS::IsotopeDistribution &id, double basePeakIntensity, int firstIsotope, int lastIsotope)
+{
+  double totalAbundance = 0.0;
+  double basePeak = 0.0;
+  for (int i = 0; i < id.size(); ++i)
+    {
+      basePeak = std::max(basePeak, id.getContainer()[i].second);
+    }
+
+  for (int i = firstIsotope; i <= lastIsotope; ++i)
+    {
+      totalAbundance += basePeakIntensity * id.getContainer()[i].second / basePeak;
+    }
+
+  return totalAbundance;
+}
+
 int getPrecursorOptionsFromHardklor(int minCharge, int maxCharge, int maxIsotope,
-                                     double isolationWidth, double isolationCenter,
-				    int previousMS1ScanID, PrecursorTargetOptions &options, std::vector<HardklorEntry> &precursors, int MS2scanID, int lastP)
+                                    double isolationWidth, double isolationCenter,
+				    int previousMS1ScanID, int nextMS1ScanID, PrecursorTargetOptions &options, 
+				    std::vector<HardklorEntry> &precursors, int MS2scanID, int lastP)
 {
     double isoLeft = isolationCenter - (isolationWidth / 2);
     double isoRight = isolationCenter + (isolationWidth / 2);
 
-    //bool targetFound = false;
+    int lastScan = 0;
     // find flanking MS1 scans
     for (int i = lastP; i < precursors.size(); ++i)
     {
         HardklorEntry precursor = precursors[i];
-
-        if (precursor.scanID == previousMS1ScanID)
+	
+        if (precursor.scanID == previousMS1ScanID || precursor.scanID == nextMS1ScanID)
         {
             // is it in the isolation window
             if ( (isoLeft < precursor.minMz && precursor.minMz < isoRight) ||
@@ -103,28 +122,39 @@ int getPrecursorOptionsFromHardklor(int minCharge, int maxCharge, int maxIsotope
                         if (isotopeIndex > lastIsotope) lastIsotope = isotopeIndex;
                     }
 		}
-		PrecursorTargetOption option(monoMass, monoMass, precursor.charge, firstIsotope, lastIsotope, 1.0);
 
-		//std::cerr << "DEBUG: " << precursor.scanID << " " << monoMass << " " << precursor.charge << " " << firstIsotope << " " << lastIsotope << " " << isoLeft << " " << isoRight << " " << precursor.minMz << " " << precursor.maxMz << std::endl;
+		// Determine abundance
+		OpenMS::IsotopeDistribution id(maxIsotope+1);
+		id.estimateFromPeptideWeight(monoMass);
+		double abundance = getTotalAbundance(id, precursor.intensity, firstIsotope, lastIsotope);
+
+		PrecursorTargetOption option(monoMass, monoMass, precursor.charge, firstIsotope, lastIsotope, 1.0, abundance);
+		
+		std::cout << "MATCH: " << previousMS1ScanID << " " << isolationCenter << " " << isoLeft << " " << isoRight << std::endl;
+		std::cout << precursor.scanID << " " << precursor.minMz << " " << precursor.maxMz << " " << firstIsotope << " " << lastIsotope << " " << precursor.charge << " " << abundance <<std::endl;
 
 		if (!options.hasOption(option))
 		{
 		    options.addOption(option);
 		} 
-		//else 
-		//{
-		//    targetFound = true;
-		//}
+		else 
+		  {
+		    options.addAbundance(option);
+		    std::cout << "ADDING ABUNDANCE" << std::endl; 
+		  }
             }
         }
 
-	else if (precursor.scanID > previousMS1ScanID)
+	else if (precursor.scanID > nextMS1ScanID)
 	{
-	  //if (!targetFound) {
-	  //  std::cout << "NOT FOUND: " << precursor.scanID << " " << MS2scanID << " " << previousMS1ScanID << std::endl;
-	  //}
-	  return i-500;
+	  return lastP;
 	}
+
+	if (precursor.scanID != lastScan && precursor.scanID < nextMS1ScanID)
+          {
+            lastScan = precursor.scanID;
+            lastP = i;
+          }
     }
 }
 
@@ -155,58 +185,78 @@ int main(int argc, char *argv[]) {
 
     std::vector<HardklorEntry> precursors = parseHardklor(hardklorPath, maxIso);
 
-    int previousMS1ScanID = 1, lastP = 0, numChimera = 0;
-
-    for (int i = std::max(0, scanStart-50); i < scanStart; ++i)
-    {
-      OpenMS::MSSpectrum scan = map.getSpectrum(i);
-      if (scan.getMSLevel() == 1)
-	{
-	  previousMS1ScanID = i+1;
-	}
-    } 
+    int previousMS1ScanID = 1, nextMS1ScanID=1, lastP = 0;
 
     for (int i = scanStart; i < map.size(); i+=numJobs)
     {
+        for (int j = i; j >= 0; --j)
+	{
+	  OpenMS::MSSpectrum scan = map.getSpectrum(j);
+	  if (scan.getMSLevel() == 1)
+	  {
+	      previousMS1ScanID = j+1;
+	      break;
+	  }
+	}
+
+	for (int j = i; j < map.size(); ++j)
+	  {
+	    OpenMS::MSSpectrum scan = map.getSpectrum(j);
+	    if (scan.getMSLevel() == 1)
+	      {
+		nextMS1ScanID = j+1;
+		break;
+	      }
+          }
+	
+
         OpenMS::MSSpectrum scan = map.getSpectrum(i);
 
         if (scan.getMSLevel() == 2)
         {
-            std::cout << "MS2 scan: " << i+1 << std::endl;
+	  std::cout << "MS2 scan: " << i+1 << " " << previousMS1ScanID << " " << nextMS1ScanID << std::endl;
 
             const OpenMS::Precursor precursorInfo = scan.getPrecursors()[0];
 
             double isolationWidth = precursorInfo.getIsolationWindowUpperOffset() + precursorInfo.getIsolationWindowLowerOffset();
             double isolationCenter = precursorInfo.getMZ();
-            double monoMass = (isolationCenter - OpenMS::Constants::C13C12_MASSDIFF_U) * precursorInfo.getCharge();
+            double monoMass = isolationCenter * precursorInfo.getCharge();
             double isotopeSpacing = 1.0 / precursorInfo.getCharge();
             int maxIsolatedIso = isolationWidth / 2 / isotopeSpacing;
 
-            PrecursorTargetOption target(monoMass, monoMass, precursorInfo.getCharge(), 0, maxIsolatedIso, 1.0);
+            PrecursorTargetOption target(monoMass, monoMass, precursorInfo.getCharge(), 0, maxIsolatedIso, 1.0, 1.0);
 
             PrecursorTargetOptions options;
             //options.addOption(target);
 
-            lastP = getPrecursorOptionsFromHardklor(minZ, maxZ, maxIso, isolationWidth, isolationCenter, previousMS1ScanID, options, precursors, i+1, lastP);
+            lastP = getPrecursorOptionsFromHardklor(minZ, maxZ, maxIso, isolationWidth, isolationCenter, previousMS1ScanID, nextMS1ScanID, options, precursors, i+1, lastP);
             //Util::populateOptionsForIsolationWindow(minZ, maxZ, maxIso, charge2prob, isolationWidth, isolationCenter, options);
 
             if (options.key2option.size() > 1)
             {
                 std::cout << "Chimeric Scan: " << i << " " << options.key2option.size() << std::endl;
+		//continue;
+	    }
+	    else 
+	      {
+		std::cout << "Single Scan: " << i << " " << options.key2option.size() << std::endl;
+	      }
 
-                NNLSModel model(scan, options, 20, MassToleranceUnit::PPM);
+	    if (options.key2option.size() == 0)
+	      {
+		options.addOption(target);
+	      }
 
-                model.writeModel(outPath, std::to_string(i+1));
-                writeScan(scan, outPath, i+1, monoMass, precursorInfo.getCharge());
-		
-		numChimera++;
-            }
-        }
+	    NNLSModel model(scan, options, 20, MassToleranceUnit::PPM);
+
+	    model.writeModel(outPath, std::to_string(i+1));
+	    writeScan(scan, outPath, i+1, isolationCenter, precursorInfo.getCharge());
+	}
         else
         {
             previousMS1ScanID = i+1;
         }
     }
 
-    return numChimera;
+    return 0;
 }

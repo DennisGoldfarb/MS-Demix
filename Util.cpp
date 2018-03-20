@@ -106,7 +106,7 @@ void Util::populateOptionsForIsolationWindow(int minCharge, int maxCharge, int m
             // compute likelihood
             double likelihood = possibleIsolationSpan * charge2prob[z];
 
-            PrecursorTargetOption option(minMonoMass, maxMonoMass, z, firstIsotope, lastIsotope, likelihood);
+            PrecursorTargetOption option(minMonoMass, maxMonoMass, z, firstIsotope, lastIsotope, likelihood, 1.0);
             if (!options.hasOption(option))
             {
                 options.addOption(option);

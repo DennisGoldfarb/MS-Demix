@@ -14,6 +14,6 @@ outPath=${ROOT_OUT_DIR}/${filename}/${algName}/${lambda1}_${lambda2}_${alpha}_${
 cat ${outPath}/mgf/*mgf > ${outPath}/${filename}.mgf
 
 # execute crux demixed spectrum                                                                                                                                                     
-${CRUX_PATH}/crux pipeline --precursor-window $globalTol --overwrite T --num-threads 1 --pin-output T --output-dir ${outPath}/ ${outPath}/${filename}.mgf $TIDE_INDEX
+${CRUX_PATH}/crux pipeline --precursor-window $globalTol --overwrite T --num-threads 4 --pin-output T --output-dir ${outPath}/ ${outPath}/${filename}.mgf $TIDE_INDEX
 
 

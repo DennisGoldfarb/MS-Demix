@@ -43,10 +43,14 @@ function demix_spectrum(path, outFile, expName, algName, lambda1, lambda2, alpha
     % read in mzValues
     mzValues = importdata(strcat(path, 'mz_', expName, '.tab'));
 
+    %if size(indices,1) <= 1
+    %    [x, cvx_status] = NNLS(A, b, m);
     if strcmp(algName, 'OLS')
         [x, cvx_status] = OLS(A, b, m);
     elseif strcmp(algName, 'NNLS')
         [x, cvx_status] = NNLS(A, b, m);  
+    elseif strcmp(algName, 'NNLS-A')
+        [x, cvx_status] = NNLS_A(A, b, m, lambda1, precursorOptions, indices);
     elseif strcmp(algName, 'NNLS-L1')
         [x, cvx_status] = NNLS_L1(A, b, m, lambda1);
     elseif strcmp(algName, 'NNLS-wL1')
@@ -66,14 +70,14 @@ function demix_spectrum(path, outFile, expName, algName, lambda1, lambda2, alpha
     elseif strcmp(algName, 'NNLS-wL1-wLinf')
         [x, cvx_status] = NNLS_weighted_L1_weighted_group_inf(A, b, m, groupWeights, indices, lambda1);
     elseif strcmp(algName, 'NNLS-sparseGroupLasso')
-        [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, indices, lambda1, lambda2, alpha);
+        [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, indices, lambda1, lambda2, alpha);
     end
     
     %if strcmp(cvx_status, 'Solved')
       %    outputCoefficients(A, x, b, indices, precursorOptions, algName, expName); 
     %end
 
-    if strcmp(cvx_status, 'Solved')
+    if strcmp(cvx_status, 'Solved') && size(indices,1) > 1
         if deisotope
             spectra = computeMonoSpectra(A, x, indices);
         else
@@ -248,14 +252,14 @@ function [x, cvx_status] = NNLS_weighted_L1_weighted_group_inf(A, b, m, groupWei
 end
 
 % NNLS sparse group lasso
-function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, indices, lambda1, lambda2, alpha)
+function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, indices, lambda1, lambda2, alpha)
     cvx_begin
         cvx_solver_settings('maxit', 1000);
      
         variable x(m);
-        %objective = 0;
-        objective = norm(A*x-b);
-        for i=1:size(groupWeights,1)
+        objective = 0;
+        %objective = norm(A*x-b);
+        for i=1:size(indices,1)
             
             i1 = indices(i,1)+1;
             i2 = indices(i,2)+1;
@@ -263,11 +267,24 @@ function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, groupWeights, ind
             p = sqrt(i2-i1);
             
             %objective = objective + (1/(2*n))*sum_square_pos(norm(A(:,i1:i2)*x(i1:i2) - b)) +  groupWeights(i)*(1-alpha)*lambda*p*(norm(x(i1:i2))) + groupWeights(i)*alpha*lambda*norm(x(i1:i2),1);
-            objective = objective + lambda1 * norm(A(:,i1:i2)*x(i1:i2) - b) + groupWeights(i)*(1-alpha)*lambda2*(norm(x(i1:i2)) + groupWeights(i)*alpha*lambda2*norm(x(i1:i2),1));
+            objective = objective + lambda1 * norm(A(:,i1:i2)*x(i1:i2) - b) + (1-alpha)*lambda2*(norm(x(i1:i2)) + alpha*lambda2*norm(x(i1:i2),1));
             %objective = objective + groupWeights(i)*(1-alpha)*lambda*p*(norm(x(i1:i2))) + groupWeights(i)*alpha*lambda*norm(xi,1);
             
         end
         minimize(objective);
+        subject to
+            x >= 0;
+    cvx_end
+end
+
+% NNLS with relative abundance penalty
+function [x, cvx_status] = NNLS_A(A, b, m, lambda1, precursorOptions, indices)
+    cvx_begin
+        variable x(m);
+
+        minimize( norm(A*x-b) );
+
+
         subject to
             x >= 0;
     cvx_end
@@ -287,13 +304,13 @@ function writeOriginalMGF(b, mzValues, scanDetails, outFile, globalTol)
     rt = scanDetails(4);
     charge = scanDetails(3);
     mass = scanDetails(2);
-    title = strcat(['scan=', num2str(scanDtails(1)), ' demixed=original, charge=', num2str(charge), ' mass=', num2str(mass)]);
+    title = strcat(['scan=', num2str(scanDetails(1)), ' demixed=original, charge=', num2str(charge), ' mass=', num2str(mass)]);
     nativeID = title;
     tol = num2str(globalTol); 
 
-    filename = strcat(num2str(scanDetails(1)), '_', ori, '_', tol, '.mgf');
+    filename = strcat(num2str(scanDetails(1)), '_ori_', tol, '.mgf');
 
-    writeMGFHeader(outFile, title, filename, nativeID, mass, intensity, charge, rt, b, mzValues, scanDtails(1), 0);
+    writeMGFHeader(outFile, title, filename, nativeID, mass, intensity, charge, rt, b, mzValues, scanDetails(1), 0);
 end
 
 function writeMGFHeader(fileID, title, filename, nativeID, mass, intensity, charge, rt, spectrum, mzValues, scanID, demixID)
@@ -320,7 +337,7 @@ function writeMGFSpectrum(spectrum, precursorOption, mzValues, scanDetails, i, c
 
     if calcPrecursorMass
         charge = precursorOption(5);
-        mass = (precursorOption(1)+precursorOption(2))/2;
+        mass = precursorOption(7);
         tol = num2str(globalTol+(precursorOption(2)-precursorOption(1))/2);
         title = strcat(['scan=', num2str(scanDetails(1)), ' demixed=', i, ' charge=', num2str(charge), ' minMass=', num2str(precursorOption(1)), ' maxMass=', num2str(precursorOption(2)), ' minIso=', num2str(precursorOption(3)), ' maxIso=', num2str(precursorOption(4))]);
         nativeID = title;

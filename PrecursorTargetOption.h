@@ -7,6 +7,7 @@
 
 #include <set>
 #include <OpenMS/CONCEPT/Types.h>
+#include "OpenMS/CONCEPT/Constants.h"
 
 class PrecursorTargetOption {
 
@@ -14,8 +15,8 @@ public:
 
     PrecursorTargetOption() {};
 
-    PrecursorTargetOption(double minMass, double maxMass, int charge, int minIso, int maxIso, double likelihood) :
-            minMass(minMass), maxMass(maxMass), charge(charge), minIso(minIso), maxIso(maxIso), likelihood(likelihood)
+ PrecursorTargetOption(double minMass, double maxMass, int charge, int minIso, int maxIso, double likelihood, double abundance) :
+    minMass(minMass), maxMass(maxMass), charge(charge), minIso(minIso), maxIso(maxIso), likelihood(likelihood), abundance(abundance)
     {
         fillPrecursorIsotopes();
     };
@@ -23,6 +24,7 @@ public:
     bool operator==(const PrecursorTargetOption&) const;
     bool operator!=(const PrecursorTargetOption&) const;
 
+    double getMinMz();
 
     double minMass;
     double maxMass;
@@ -30,6 +32,7 @@ public:
     int minIso;
     int maxIso;
     double likelihood;
+    double abundance;
 
     std::set<OpenMS::UInt> precursorIsotopes;
 

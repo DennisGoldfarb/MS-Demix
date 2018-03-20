@@ -4,6 +4,12 @@
 
 #include "PrecursorTargetOptions.h"
 
+void PrecursorTargetOptions::addAbundance(PrecursorTargetOption o)
+{
+  PrecursorTargetOptionsKey key(o.charge, o.minIso, o.maxIso);
+  key2option.find(key)->second.abundance += o.abundance;
+}
+
 void PrecursorTargetOptions::addOption(PrecursorTargetOption o)
 {
     PrecursorTargetOptionsKey key(o.charge, o.minIso, o.maxIso);

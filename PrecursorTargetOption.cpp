@@ -25,3 +25,11 @@ bool PrecursorTargetOption::operator!= (const PrecursorTargetOption& c) const
 {
     return !(*this == c);
 }
+
+double PrecursorTargetOption::getMinMz()
+{
+  double minMz = minMass / charge;
+  double maxMz = maxMass / charge;
+
+  return (minMz + maxMz)/2;
+}

@@ -39,6 +39,8 @@ public:
     void addOption(PrecursorTargetOption o);
     bool hasOption(PrecursorTargetOption o);
 
+    void addAbundance(PrecursorTargetOption o);
+
     int getMaxIsotope();
     int getMaxCharge();
 

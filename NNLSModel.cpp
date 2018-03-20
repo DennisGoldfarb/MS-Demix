@@ -461,14 +461,14 @@ void NNLSModel::writePrecursorOptions(std::string path) {
     {
         int i = 0;
         PrecursorTargetOption o = A[i].precursorDetails;
-        out << o.minMass << "\t" << o.maxMass << "\t" << o.minIso << "\t" << o.maxIso << "\t" << o.charge << "\t" << o.likelihood << std::endl;
+        out << o.minMass << "\t" << o.maxMass << "\t" << o.minIso << "\t" << o.maxIso << "\t" << o.charge << "\t" << o.likelihood << "\t" << o.getMinMz() << "\t" << o.abundance << std::endl;
 
         for (; i < A.size() - 1; ++i)
         {
             if (A[i].precursorDetails != A[i+1].precursorDetails)
             {
                 o = A[i+1].precursorDetails;
-                out << o.minMass << "\t" << o.maxMass << "\t" << o.minIso << "\t" << o.maxIso << "\t" << o.charge << "\t" << o.likelihood << std::endl;
+                out << o.minMass << "\t" << o.maxMass << "\t" << o.minIso << "\t" << o.maxIso << "\t" << o.charge << "\t" << o.likelihood << "\t" << o.getMinMz() << "\t" << o.abundance << std::endl;
             }
         }
     }
