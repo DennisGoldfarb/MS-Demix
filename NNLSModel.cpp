@@ -119,7 +119,6 @@ void NNLSModel::init_b()
             itrMz = mzValues.insert(itrMz, isotopes[isotopeIndex]);
             itrB = b.insert(itrB, 0.0);
         }
-
         // move back to center
         while (itrMz != mzValues.end() && *itrMz < isotopes[centerIsotopeIndex])
         {
@@ -209,7 +208,6 @@ void NNLSModel::init_b()
             ++itrB;
             ++itrMz;
         }
-
         // move to the end
         itrMz = mzValues.end();
         itrB = b.end();
@@ -288,8 +286,10 @@ void NNLSModel::init_A() {
                             // approximate isotopic distribution
                             OpenMS::IsotopeDistribution id;
                             id.estimateForFragmentFromPeptideWeight(monoPrecursorMass, monoFragMass, option.second.precursorIsotopes);
-                            //id = isotopeDB->estimateForFragmentFromPeptideWeight(monoPrecursorMass, monoFragMass, option.second.precursorIsotopes);
+
+			    //id = isotopeDB->estimateForFragmentFromPeptideWeight(monoPrecursorMass, monoFragMass, option.second.precursorIsotopes);
                             id.renormalize();
+
 
                             double basePeak = 0.0;
                             double minPeak = 1.0;
@@ -298,6 +298,7 @@ void NNLSModel::init_A() {
                                 basePeak = std::max(basePeak, peak.second);
                                 minPeak = std::min(minPeak, peak.second);
                             }
+
 
                             if (minPeak == 0.0) continue;
 
@@ -308,24 +309,26 @@ void NNLSModel::init_A() {
                             // find the matching index for each isotope
                             for (int i = 0; i < id.size(); ++i)
                             {
+
                                 double isotopeMz = monoFragMz + (i * (OpenMS::Constants::C13C12_MASSDIFF_U / fragment_z));
 
                                 if (Util::compareWithTol(mzValues[mzValues.size()-1], isotopeMz, massTolerance, unit) != -1) // make sure it's in the scan range
                                 {
+				  
                                     while (Util::compareWithTol(mzValues[tmp_index_b], isotopeMz, massTolerance, unit) != 0)
                                     {
                                         tmp_index_b++;
                                     }
-
+				  
                                     //intData[i] = (id.getContainer()[i].second / basePeak) * (b[index_b] / (id.getContainer()[-offset].second / basePeak));
                                     intData[i] = id.getContainer()[i].second;
                                     mzData[i] = mzValues[tmp_index_b];
+				  
                                 }
                             }
 
                             // create dictionary element
                             DictionaryElement column(option.second, fragment_z, offset, monoFragMz, intData, mzData, numCol);
-
 
 
                             A.push_back(column);

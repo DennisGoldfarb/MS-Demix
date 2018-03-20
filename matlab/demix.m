@@ -5,7 +5,7 @@ function demix(outPath, path, specStart, numJobs, numScans,algName, lambda1, lam
   filename = strcat(num2str(specStart), '.mgf');
   fileID = fopen(strcat(outPath, '/', filename), 'w');
 
-  for i=specStart:numJobs:numScans
+    for i=(specStart-1):numJobs:numScans
         if exist(strcat(path, num2str(i), '.tab'), 'file')
 	  demix_spectrum(path, fileID, num2str(i), algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol);
         end

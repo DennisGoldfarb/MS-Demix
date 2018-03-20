@@ -29,7 +29,7 @@ void writeScan(std::string outPath, int scanID, double monoMass, int z)
 {
     std::ofstream out(outPath + std::to_string(scanID) + ".tab");
 
-    out << scanID << "\t" << monoMass << "\t" << z << std::endl;
+    out << scanID << "\t" << monoMass << "\t" << z << "\t0.0" << std::endl;
 
     out.close();
 }
@@ -54,11 +54,12 @@ double getTotalAbundance(OpenMS::IsotopeDistribution &id, double basePeakIntensi
 void addOption(PrecursorTargetOptions &options, double isolationCenter, double isolationWidth, int z,
                double monoNeutralMass, int maxIsotope, double intensity, int scanID)
 {
+    if ( z == 1) return;
     double isoLeft = isolationCenter - (isolationWidth / 2);
     double isoRight = isolationCenter + (isolationWidth / 2);
 
     double isotopeSpacing = OpenMS::Constants::C13C12_MASSDIFF_U / z;
-    double minMz = (monoNeutralMass / z) + OpenMS::Constants::PROTON_MASS_U;
+    double minMz = ((monoNeutralMass + (OpenMS::Constants::PROTON_MASS_U * (z-1))) / z); //+ OpenMS::Constants::PROTON_MASS_U;
     double monoMass = minMz * z;
     int firstIsotope = std::numeric_limits<int>::max();
     int lastIsotope = std::numeric_limits<int>::min();
@@ -72,6 +73,13 @@ void addOption(PrecursorTargetOptions &options, double isolationCenter, double i
         }
     }
 
+    if (firstIsotope == std::numeric_limits<int>::max())
+    {
+      std::cout << "UNMATCHED! " << scanID << " " << monoNeutralMass << " " << minMz << " " << monoMass << " " << firstIsotope << " " << lastIsotope
+		<< " " << z  << std::endl;
+        return;
+    }
+
     // Determine abundance
     OpenMS::IsotopeDistribution id(maxIsotope + 1);
     id.estimateFromPeptideWeight(monoMass);
@@ -80,7 +88,7 @@ void addOption(PrecursorTargetOptions &options, double isolationCenter, double i
     PrecursorTargetOption option(monoMass, monoMass, z, firstIsotope, lastIsotope, 1.0, abundance);
 
     std::cout << "MATCH: " << isolationCenter << " " << isoLeft << " " << isoRight << std::endl;
-    std::cout << scanID << " " << monoNeutralMass << " " << firstIsotope << " " << lastIsotope
+    std::cout << scanID << " " << monoNeutralMass << " " << minMz << " " << monoMass << " " << firstIsotope << " " << lastIsotope
               << " " << z << " " << abundance << std::endl;
 
     if (!options.hasOption(option))
@@ -110,10 +118,10 @@ void parseBullseye(std::string bullseyePath, double isolationWidth, int scanStar
     while (std::getline(in, line))
     {
         std::istringstream iss(line);
-
         if (!std::isdigit(iss.peek()))
         {
-            iss >> symbol;
+	    iss >> symbol;
+
             if (symbol == 'S')
             {
                 if (mzData.size() > 0 && (scanID % numJobs) == (scanStart - 1) )
@@ -122,46 +130,57 @@ void parseBullseye(std::string bullseyePath, double isolationWidth, int scanStar
                     if (options.key2option.size() > 1)
                     {
                         std::cout << "Chimeric Scan: " << scanID << " " << options.key2option.size() << std::endl;
-                    } else
+                    } 
+		    else if (options.key2option.size() == 1)
                     {
                         std::cout << "Single Scan: " << scanID << " " << options.key2option.size() << std::endl;
                     }
-                    MultiplexedScan scan;
-                    scan.intData = intData;
-                    scan.mzData = mzData;
-                    scan.isolationWidth = isolationWidth;
+		    if (options.key2option.size() > 0)
+		    {
+                        MultiplexedScan scan;
+                        scan.intData = intData;
+                        scan.mzData = mzData;
+                        scan.isolationWidth = isolationWidth;
 
-                    NNLSModel model(scan, options, 20, MassToleranceUnit::PPM);
 
-                    model.writeModel(outPath, std::to_string(scanID));
-                    writeScan(outPath, scanID, isolation_center, charge);
+                        NNLSModel model(scan, options, 20, MassToleranceUnit::PPM);
+
+                        model.writeModel(outPath, std::to_string(scanID));
+
+                        writeScan(outPath, scanID, isolation_center, charge);
+		    } else {
+		      std::cout << "No Scan: " << scanID << " " << options.key2option.size() << std::endl;
+		    }
                 }
                 iss >> scanID >> scanID >> isolation_center;
                 mzData.clear();
                 intData.clear();
                 options.key2option.clear();
             }
-            else if (symbol == 'I')
-            {
-                iss >> label;
-                if (label == "EZ")
+	    else if ((scanID % numJobs) == (scanStart - 1))
+	    {
+                if (symbol == 'I')
                 {
-                    iss >> charge >> monoNeutralMass >> rt >> abundance;
-                    // create precursor option
-                    addOption(options, isolation_center, isolationWidth, charge, monoNeutralMass, maxIso, abundance, scanID);
+                    iss >> label;
+                    if (label == "EZ")
+                    {
+                        iss >> charge >> monoNeutralMass >> rt >> abundance;
+                        // create precursor option
+                        addOption(options, isolation_center, isolationWidth, charge, monoNeutralMass, maxIso, abundance, scanID);
+                    }
                 }
-            }
-            else if (symbol == 'Z')
-            {
-                if (options.key2option.size() == 0)
+                else if (symbol == 'Z')
                 {
-                    iss >> charge >> monoNeutralMass;
-                    // create precursor option
-                    addOption(options, isolation_center, isolationWidth, charge, monoNeutralMass, maxIso, 1.0, scanID);
+                    if (options.key2option.size() == 0)
+                    {
+                        iss >> charge >> monoNeutralMass;
+                        // create precursor option
+                        addOption(options, isolation_center, isolationWidth, charge, monoNeutralMass, maxIso, 1.0, scanID);
+                    }
                 }
-            }
+	    }
         }
-        else
+        else if ((scanID % numJobs) == (scanStart - 1))
         {
             iss >> mz >> intensity;
             mzData.push_back(mz);
