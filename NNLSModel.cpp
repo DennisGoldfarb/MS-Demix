@@ -253,7 +253,7 @@ void NNLSModel::init_A() {
                 {
                     double mz = mzValues[index_b];
 
-                    for (int fragment_z = 1; fragment_z < option.first.z; ++fragment_z)
+                    for (int fragment_z = 1; fragment_z < option.first.z || fragment_z == 1; ++fragment_z)
                     {
                         if (fragment_z > 1 && option.first.lastIso == 0) // no point in trying all fragment charges when only mono-isotope expected.
                         {

@@ -1,4 +1,4 @@
-//
+1;95;0c//
 // Created by Dennis Goldfarb on 2/25/18.
 //
 #include <iostream>
@@ -7,19 +7,14 @@
 #include <sstream>
 
 #include <OpenMS/CHEMISTRY/IsotopeDistribution.h>
-#include <OpenMS/FORMAT/IndexedMzMLFileLoader.h>
-#include <OpenMS/KERNEL/OnDiscMSExperiment.h>
-#include <OpenMS/FORMAT/MzMLFile.h>
-#include <OpenMS/KERNEL/MSExperiment.h>
 #include "Util.h"
 #include "NNLSModel.h"
 #include "HardklorEntry.h"
 
 void usage() {
-    std::cout << "usage: ProcessSingleSpectrum mzML_file hardklor_file scanStart numJobs minZ maxZ maxIso output_directory"
-              << std::endl;
-    std::cout << "\tmzML_file: path to input .mzML file " << std::endl;
-    std::cout << "\thardklor_file: path to input hardklor results file " << std::endl;
+    std::cout << "usage: ProcessSingleSpectrum bullseye_file scanStart numJobs minZ maxZ maxIso output_directory" << std::endl;
+
+    std::cout << "\tbullseye_file: path to input bullseye .ms2 file " << std::endl;
     std::cout << "\tscanStart: first scan_ID to process." << std::endl;
     std::cout << "\tnumJobs: number of current jobs performed." << std::endl;
     std::cout << "\tminZ: min precursor charge state to consider." << std::endl;
@@ -36,6 +31,66 @@ void writeScan(OpenMS::MSSpectrum &scan, std::string outPath, int scanID, double
     out << scanID << "\t" << monoMass << "\t" << z << "\t" << scan.getRT() << std::endl;
 
     out.close();
+}
+
+void parseBullseye(std::string bullseyePath)
+{
+  std::ifstream in (bullseyePath);
+  
+  std::string line, label;
+  char symbol;
+  int scanID, charge, targetCount;
+  double isolation_center, monoNeutralMass, rt, abundance, intensity, mz;
+  std::vector<double> mzData, intData;
+  bool header = true;
+
+  while (std::getline(in, line))
+  {
+      std::istringstream iss(line);
+      
+      if (header)
+      {
+	  iss >> symbol;
+	  if (symbol == 'S')
+	  {
+	    if (mzData.size() > 0)
+	    {
+	      // create multiplexed scan object
+	    }
+	    iss >> scanID >> scanID >> isolation_center;
+	    mzData.clear();
+	    intData.clear();
+	    targetCount = 0;
+	  }
+	  else if (symbol == 'I')
+	  {
+	    iss >> label;
+	    if (label == "EZ")
+	    {
+	      iss >> charge >> monoNeutralMass >> rt >> abundance;
+	      targetCount++;
+	    }
+	  }
+	  else if (symbol == 'Z')
+	  {
+	    targetCount--;
+	    if (targetCount == 0)
+	    {
+		header = false;
+	    }
+	  }
+      }
+      else 
+      {
+	iss >> mz >> intensity;
+	mzData.push_back(mz);
+	intData.push_back(intensity);
+	if (in.peek() == 'S')
+	{
+	    header = true;
+	}
+      }
+  }
 }
 
 std::vector<HardklorEntry> parseHardklor(std::string hardklorPath, int maxIso)
@@ -160,63 +215,20 @@ int getPrecursorOptionsFromHardklor(int minCharge, int maxCharge, int maxIsotope
 
 int main(int argc, char *argv[]) {
     //check for correct number of command line arguments
-    if (argc != 9) {
+    if (argc != 8) {
         usage();
         return -1;
     }
 
-    std::string mzMLPath = argv[1];
-    std::string hardklorPath = argv[2];
-    int scanStart = atoi(argv[3]);
-    int numJobs = atoi(argv[4]);
-    int minZ = atoi(argv[5]);
-    int maxZ = atoi(argv[6]);
-    int maxIso = atoi(argv[7]);
-    std::string outPath = argv[8];
+    std::string bullseyePath = argv[1];
+    int scanStart = atoi(argv[2]);
+    int numJobs = atoi(argv[3]);
+    int minZ = atoi(argv[4]);
+    int maxZ = atoi(argv[5]);
+    int maxIso = atoi(argv[6]);
+    std::string outPath = argv[7];
 
-    double charge2prob[7] = {0.0, 0.01, 0.5, 0.5, 0.05, 0.03, 0.02};
-
-    //OpenMS::MzMLFile mzMLDataFile;
-    //OpenMS::PeakMap map;
-    OpenMS::IndexedMzMLFileLoader mzMLDataFile;
-    OpenMS::OnDiscPeakMap map;
-
-    mzMLDataFile.load(mzMLPath, map);
-
-    std::vector<HardklorEntry> precursors = parseHardklor(hardklorPath, maxIso);
-
-    int previousMS1ScanID = 1, nextMS1ScanID=1, lastP = 0;
-
-    for (int i = scanStart; i < map.size(); i+=numJobs)
-    {
-        for (int j = i; j >= 0; --j)
-	{
-	  OpenMS::MSSpectrum scan = map.getSpectrum(j);
-	  if (scan.getMSLevel() == 1)
-	  {
-	      previousMS1ScanID = j+1;
-	      break;
-	  }
-	}
-
-	for (int j = i; j < map.size(); ++j)
-	  {
-	    OpenMS::MSSpectrum scan = map.getSpectrum(j);
-	    if (scan.getMSLevel() == 1)
-	      {
-		nextMS1ScanID = j+1;
-		break;
-	      }
-          }
-	
-
-        OpenMS::MSSpectrum scan = map.getSpectrum(i);
-
-        if (scan.getMSLevel() == 2)
-        {
-	  std::cout << "MS2 scan: " << i+1 << " " << previousMS1ScanID << " " << nextMS1ScanID << std::endl;
-
-            const OpenMS::Precursor precursorInfo = scan.getPrecursors()[0];
+    parseBullseye(bullseyePath, scanStart, numJobs, minZ, maxZ, maxIso, outPath);
 
             double isolationWidth = precursorInfo.getIsolationWindowUpperOffset() + precursorInfo.getIsolationWindowLowerOffset();
             double isolationCenter = precursorInfo.getMZ();
