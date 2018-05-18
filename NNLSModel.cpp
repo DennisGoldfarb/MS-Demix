@@ -253,7 +253,7 @@ void NNLSModel::init_A() {
                 {
                     double mz = mzValues[index_b];
 
-                    for (int fragment_z = 1; fragment_z < option.first.z; ++fragment_z)
+                    for (int fragment_z = 1; fragment_z <= option.first.z; ++fragment_z)
                     {
                         if (fragment_z > 1 && option.first.lastIso == 0) // no point in trying all fragment charges when only mono-isotope expected.
                         {
@@ -274,16 +274,21 @@ void NNLSModel::init_A() {
                             }
 
                             // check if the monoFragMz signal was observed. If yes and offset, skip this offset because it was already done
-                            if (offset < 0 && Util::compareWithTol(mzValues[tmp_index_b], monoFragMz, massTolerance, unit) == 0)
+                            if (offset < 0 && Util::compareWithTol(mzValues[tmp_index_b], monoFragMz, massTolerance, unit) == 0 && b[tmp_index_b] > 0)
                             {
                                 continue;
                             }
 
                             double monoFragMass = monoFragMz * fragment_z;
 
-                            if (monoFragMass >= monoPrecursorMass)
+
+                            if (monoFragMass >= monoPrecursorMass + 1 + (option.first.z * OpenMS::Constants::PROTON_MASS_U))
                             {
                                 continue;
+                            }
+                            if (monoFragMass >= monoPrecursorMass)
+                            {
+                                monoFragMass = monoPrecursorMass;
                             }
                             // approximate isotopic distribution
                             OpenMS::IsotopeDistribution id;
@@ -291,7 +296,21 @@ void NNLSModel::init_A() {
                             //id = isotopeDB->estimateForFragmentFromPeptideWeight(monoPrecursorMass, monoFragMass, option.second.precursorIsotopes);
                             id.renormalize();
 
-                            double basePeak = 0.0;
+                            bool validOffset = true;
+                            for (int isoCheck = 0; isoCheck < -offset; ++isoCheck)
+                            {
+                                if (id.getContainer()[isoCheck].second >= id.getContainer()[-offset].second)
+                                {
+                                    validOffset = false;
+                                }
+                            }
+
+                            if (!validOffset)
+                            {
+                                continue;
+                            }
+
+                            /*double basePeak = 0.0;
                             double minPeak = 1.0;
                             for (auto peak : id.getContainer())
                             {
@@ -299,7 +318,7 @@ void NNLSModel::init_A() {
                                 minPeak = std::min(minPeak, peak.second);
                             }
 
-                            if (minPeak == 0.0) continue;
+                            if (minPeak == 0.0) continue;*/
 
                             // create dictionary column
                             std::vector<double> intData(id.size());
@@ -319,6 +338,10 @@ void NNLSModel::init_A() {
 
                                     //intData[i] = (id.getContainer()[i].second / basePeak) * (b[index_b] / (id.getContainer()[-offset].second / basePeak));
                                     intData[i] = id.getContainer()[i].second;
+                                    if (i == 0 && intData[i] == 0)
+                                    {
+                                        intData[i] = 0.00000001;
+                                    }
                                     mzData[i] = mzValues[tmp_index_b];
                                 }
                             }
