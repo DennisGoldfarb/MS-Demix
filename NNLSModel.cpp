@@ -281,6 +281,10 @@ void NNLSModel::init_A() {
 
                             double monoFragMass = monoFragMz * fragment_z;
 
+                            if (fragment_z == option.first.z && monoFragMass < monoPrecursorMass*0.66)
+                            {
+                                continue;
+                            }
 
                             if (monoFragMass >= monoPrecursorMass + 1 + (option.first.z * OpenMS::Constants::PROTON_MASS_U))
                             {

@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(my_executables
         main
         ProcessSingleSpectrum
+        PlotLowThroughput
         )
 
 
@@ -34,7 +35,10 @@ set(my_sources
         DictionaryElement.cpp
         DictionaryElement.h
         HardklorEntry.cpp
-        HardklorEntry.h)
+        HardklorEntry.h
+        PlotLowThroughput.cpp
+        Fragment.cpp
+        Fragment.h)
 
 
 ## find OpenMS configuration and register target "OpenMS" (our library)
