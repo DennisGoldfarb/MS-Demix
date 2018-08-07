@@ -294,10 +294,6 @@ void NNLSModel::init_A() {
                             // find closest index of monoFragMz
                             int tmp_index_b = index_b;
                             while (mzValues[tmp_index_b] > monoFragMz) {
-                                if (index_b == 120)
-                                {
-                                    int x = 1;
-                                }
                                 tmp_index_b--;
                             }
 
