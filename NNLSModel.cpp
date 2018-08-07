@@ -12,7 +12,8 @@
 NNLSModel::NNLSModel(MultiplexedScan scan, PrecursorTargetOptions options, double massTolerance, MassToleranceUnit unit)
 {
     this->scan = scan;
-    this->options.push_back(options);
+    //this->options.push_back(options);
+    initOptions(options);
     this->massTolerance = massTolerance;
     this->unit = unit;
     init_b();
@@ -22,27 +23,69 @@ NNLSModel::NNLSModel(MultiplexedScan scan, PrecursorTargetOptions options, doubl
 NNLSModel::NNLSModel(MultiplexedScan scan, std::vector<PrecursorTargetOptions> options, double massTolerance, MassToleranceUnit unit)
 {
     this->scan = scan;
-    this->options = options;
+    //this->options = options;
+    //initOptions(options);
     this->massTolerance = massTolerance;
     this->unit = unit;
     init_b();
     init_A();
 }
 
+void NNLSModel::initOptions(PrecursorTargetOptions options)
+{
+  double totalAbundance = 0;
+  for (auto option : options.key2option)
+    {
+      //totalAbundance += option.second.abundance;
+      totalAbundance = std::max(option.second.abundance, totalAbundance);
+    }
+
+  //std::cout << totalAbundance << std::endl;
+  PrecursorTargetOptions acceptedOptions;
+
+  for (auto option : options.key2option)
+    {
+      if (option.second.abundance / totalAbundance >= 0.2)
+      {
+	  //std::cout << "accepted: " << option.second.abundance << " " << option.first.z << " " << option.first.firstIso << " " << option.first.lastIso << std::endl;
+	  acceptedOptions.addOption(option.second);
+      }
+    }
+
+  if (acceptedOptions.key2option.size() == 0)
+    {
+      this->options.push_back(options);
+    }
+  else
+    {
+      this->options.push_back(acceptedOptions);
+    }
+}
+
+
 NNLSModel::NNLSModel(OpenMS::MSSpectrum scan, PrecursorTargetOptions options, double massTolerance,
                      MassToleranceUnit unit) {
     this->scan = MultiplexedScan(scan);
+    //initOptions(options);
     this->options.push_back(options);
     this->massTolerance = massTolerance;
     this->unit = unit;
     init_b();
+    std::cout << "b init" << std::endl;
     init_A();
+    std::cout << "A init" << std::endl;
 }
 
 void NNLSModel::init_b()
 {
     int maxIsotope = getMaxIsotope();
     int maxCharge = getMaxCharge();
+    std::cout << "MaxIso: " << maxIsotope << " MaxCharge: " << maxCharge << std::endl;
+    /*for (int i = 0; i < scan.mzData.size(); ++i)
+      {
+	std::cout << scan.mzData[i] << std::endl;
+	}*/
+
 
     auto itrB = b.begin();
     auto itrMz = mzValues.begin();
@@ -50,6 +93,7 @@ void NNLSModel::init_b()
     for (int i = 0; i < scan.mzData.size(); ++i)
     {
         double currentMz = scan.mzData[i];
+	minIntensity = std::min(minIntensity, scan.intData[i]);
 
         // create all isotope m/z signals we will test against
         std::set<double> isotopeMzs;
@@ -66,6 +110,34 @@ void NNLSModel::init_b()
             isotopes.push_back(isotope);
         }
         std::sort(isotopes.begin(), isotopes.end());
+
+	/*int k = i+1, l = 0;
+	bool foundIsotope = false;
+	//std::cout << isotopes.size() << std::endl;
+	while (k < scan.mzData.size() && l < isotopes.size())
+	  {
+	    //std::cout << scan.mzData[k] << " " << isotopes[l] << std::endl;
+	    if (Util::compareWithTol(scan.mzData[k], isotopes[l], massTolerance, unit) == 0)
+	      {
+		//std::cout << "isotope found" << std::endl;
+		foundIsotope = true;
+		break;
+	      }
+	    else if (scan.mzData[k] > isotopes[l])
+	      {
+		l++;
+	      }
+	    else
+	      {
+		k++;
+	      }
+	  }
+
+	if (!foundIsotope)
+	{
+	  //std::cout << "isotope not found" << std::endl;
+	  continue;
+	  }*/
 
         // check if any of the left isotopes are already in b, if not, add them.
         int centerIsotopeIndex = (isotopes.size()/2);
@@ -216,6 +288,8 @@ void NNLSModel::init_b()
         --itrMz;
         --itrB;
     }
+    std::cout << "minIntensity: " << minIntensity << std::endl;
+    std::cout << b.size() << std::endl;
 }
 
 int NNLSModel::getMaxIsotope()
@@ -252,6 +326,7 @@ void NNLSModel::init_A() {
                 if (b[index_b] > 0) // this means we observed a signal
                 {
                     double mz = mzValues[index_b];
+		    double intensity = b[index_b];
 
                     for (int fragment_z = 1; fragment_z <= option.first.z; ++fragment_z)
                     {
@@ -295,19 +370,25 @@ void NNLSModel::init_A() {
                                 monoFragMass = monoPrecursorMass;
                             }
                             // approximate isotopic distribution
+			    OpenMS::CoarseIsotopePatternGenerator gen;
                             OpenMS::IsotopeDistribution id;
-                            id.estimateForFragmentFromPeptideWeight(monoPrecursorMass, monoFragMass, option.second.precursorIsotopes);
+                            id = gen.estimateForFragmentFromPeptideWeight(monoPrecursorMass, monoFragMass, option.second.precursorIsotopes);
                             //id = isotopeDB->estimateForFragmentFromPeptideWeight(monoPrecursorMass, monoFragMass, option.second.precursorIsotopes);
                             id.renormalize();
 
                             bool validOffset = true;
                             for (int isoCheck = 0; isoCheck < -offset; ++isoCheck)
                             {
-                                if (id.getContainer()[isoCheck].second >= id.getContainer()[-offset].second)
+			      if (id.getContainer()[isoCheck].getIntensity() >= id.getContainer()[-offset].getIntensity())
                                 {
                                     validOffset = false;
                                 }
                             }
+
+			    /*if (offset <0 && intensity * id.getContainer()[0].second > minIntensity * 2)
+			      {
+				validOffset = false;
+				}*/
 
                             if (!validOffset)
                             {
@@ -341,7 +422,7 @@ void NNLSModel::init_A() {
                                     }
 
                                     //intData[i] = (id.getContainer()[i].second / basePeak) * (b[index_b] / (id.getContainer()[-offset].second / basePeak));
-                                    intData[i] = id.getContainer()[i].second;
+                                    intData[i] = id.getContainer()[i].getIntensity();
                                     if (i == 0 && intData[i] == 0)
                                     {
                                         intData[i] = 0.00000001;
@@ -354,7 +435,7 @@ void NNLSModel::init_A() {
                             DictionaryElement column(option.second, fragment_z, offset, monoFragMz, intData, mzData, numCol);
 
 
-
+			    std::cout << "added column" << std::endl;
                             A.push_back(column);
                             numCol++;
                         }

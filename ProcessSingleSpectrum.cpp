@@ -6,7 +6,8 @@
 #include <string>
 #include <sstream>
 
-#include <OpenMS/CHEMISTRY/IsotopeDistribution.h>
+#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/IsotopeDistribution.h>
+#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/CoarseIsotopePatternGenerator.h>
 #include <OpenMS/FORMAT/IndexedMzMLFileLoader.h>
 #include <OpenMS/KERNEL/OnDiscMSExperiment.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
@@ -75,12 +76,12 @@ double getTotalAbundance(OpenMS::IsotopeDistribution &id, double basePeakIntensi
   double basePeak = 0.0;
   for (int i = 0; i < id.size(); ++i)
     {
-      basePeak = std::max(basePeak, id.getContainer()[i].second);
+      basePeak = std::max(basePeak, (double) id.getContainer()[i].getIntensity());
     }
 
   for (int i = firstIsotope; i <= lastIsotope; ++i)
     {
-      totalAbundance += basePeakIntensity * id.getContainer()[i].second / basePeak;
+      totalAbundance += basePeakIntensity * id.getContainer()[i].getIntensity() / basePeak;
     }
 
   return totalAbundance;
@@ -123,9 +124,14 @@ int getPrecursorOptionsFromHardklor(int minCharge, int maxCharge, int maxIsotope
                     }
 		}
 
+                if (firstIsotope == 0 && lastIsotope ==0)
+		{
+		    continue;
+		}
+
 		// Determine abundance
-		OpenMS::IsotopeDistribution id(maxIsotope+1);
-		id.estimateFromPeptideWeight(monoMass);
+		OpenMS::CoarseIsotopePatternGenerator gen(lastIsotope+1);
+		OpenMS::IsotopeDistribution id = gen.estimateFromPeptideWeight(monoMass);
 		double abundance = getTotalAbundance(id, precursor.intensity, firstIsotope, lastIsotope);
 
 		PrecursorTargetOption option(monoMass, monoMass, precursor.charge, firstIsotope, lastIsotope, 1.0, abundance);
@@ -138,10 +144,10 @@ int getPrecursorOptionsFromHardklor(int minCharge, int maxCharge, int maxIsotope
 		    options.addOption(option);
 		} 
 		else 
-		  {
+		{
 		    options.addAbundance(option);
 		    std::cout << "ADDING ABUNDANCE" << std::endl; 
-		  }
+		}
             }
         }
 
@@ -227,7 +233,7 @@ int main(int argc, char *argv[]) {
             PrecursorTargetOption target(monoMass, monoMass, precursorInfo.getCharge(), 0, maxIsolatedIso, 1.0, 1.0);
 
             PrecursorTargetOptions options;
-            //options.addOption(target);
+            options.addOption(target);
 
             lastP = getPrecursorOptionsFromHardklor(minZ, maxZ, maxIso, isolationWidth, isolationCenter, previousMS1ScanID, nextMS1ScanID, options, precursors, i+1, lastP);
             //Util::populateOptionsForIsolationWindow(minZ, maxZ, maxIso, charge2prob, isolationWidth, isolationCenter, options);
@@ -250,7 +256,9 @@ int main(int argc, char *argv[]) {
 	    NNLSModel model(scan, options, 20, MassToleranceUnit::PPM);
 
 	    model.writeModel(outPath, std::to_string(i+1));
+
 	    writeScan(scan, outPath, i+1, isolationCenter, precursorInfo.getCharge());
+
 	}
         else
         {

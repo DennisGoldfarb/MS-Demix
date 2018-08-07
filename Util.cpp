@@ -21,7 +21,8 @@ bool Util::withinTol(double mz1, double mz2, double tol, MassToleranceUnit unit)
 }
 
 int Util::compareWithTol(double expected, double observed, double tol, MassToleranceUnit unit) {
-    double massTol = getTol(expected, tol, unit);
+    double larger = expected > observed ? expected : observed;
+    double massTol = getTol(larger, tol, unit);
     double low = expected - massTol;
     double high = expected + massTol;
     if ((observed >= low) && (observed <= high))

@@ -7,7 +7,20 @@
 void PrecursorTargetOptions::addAbundance(PrecursorTargetOption o)
 {
   PrecursorTargetOptionsKey key(o.charge, o.minIso, o.maxIso);
-  key2option.find(key)->second.abundance += o.abundance;
+  //key2option.find(key)->second.abundance += o.abundance;
+  key2option.find(key)->second.abundance = std::max(key2option.find(key)->second.abundance, o.abundance);
+  
+  /*for(int i = o.minIso; i <=2; ++i)
+  { 
+      PrecursorTargetOptionsKey key2(o.charge, o.minIso, i);
+      auto match = key2option.find(key2);
+      if (match != key2option.end() && match->second.abundance < o.abundance)
+      {
+	key2option.erase(match);
+	key2option.insert(std::make_pair(key, o));
+	return;
+      }
+      } */
 }
 
 void PrecursorTargetOptions::addOption(PrecursorTargetOption o)
@@ -18,8 +31,16 @@ void PrecursorTargetOptions::addOption(PrecursorTargetOption o)
 
 bool PrecursorTargetOptions::hasOption(PrecursorTargetOption o)
 {
-    PrecursorTargetOptionsKey key(o.charge, o.minIso, o.maxIso);
-    return key2option.find(key) != key2option.end();
+  PrecursorTargetOptionsKey key(o.charge, o.minIso, o.maxIso);
+  return key2option.find(key) != key2option.end();
+
+  /*  for (int i = o.minIso; i <= 2; ++i)
+    {
+      PrecursorTargetOptionsKey key(o.charge, o.minIso, i);
+      if (key2option.find(key) != key2option.end()) return true;
+    }
+
+    return false;*/
 }
 
 PrecursorTargetOptions::PrecursorTargetOptions(const PrecursorTargetOptions &o)
