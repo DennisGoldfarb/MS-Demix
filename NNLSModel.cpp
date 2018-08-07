@@ -98,6 +98,9 @@ void NNLSModel::init_b() {
         int l = 0;
         bool foundIsotope = false;
         while (k < scan.mzData.size() && l < isotopes.size()) {
+            if (k == i) {
+                k++;
+            }
             if (Util::compareWithTol(scan.mzData[k], isotopes[l], massTolerance, unit) == 0) {
                 foundIsotope = true;
                 break;
