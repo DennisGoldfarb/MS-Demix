@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 11)
 #set(SOURCE_FILES main.cpp)
 #add_executable(Demix ${SOURCE_FILES})
 
-
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ## list all your executables here (a corresponding .cpp file should exist, e.g. Main.cpp)
 set(my_executables
@@ -42,9 +42,11 @@ find_package(OpenMS PATHS "/Users/dennisg/OpenMS/dev-OpenMS/")
 ## if the above fails you can try calling cmake with -D OpenMS_DIR=/path/to/OpenMS/
 ## or modify the find_package() call accordingly
 #find_package(OpenMS PATHS "/Users/dennisg/OpenMS/OpenMS/")
+find_package(Qt5Core)
+find_package(Qt5Widgets)
+find_package(Qt5Network)
 
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++11-extensions")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++11-extensions -pthread")
 
 # check whether the OpenMS package was found
 if (OpenMS_FOUND)

@@ -8,8 +8,6 @@
 
 source ./config.sh
 
-filename=HELA_2017-10-24_CID_OT
-
 outPath=${ROOT_OUT_DIR}/${filename}/hardklor_v2/
 
 mkdir -p $outPath

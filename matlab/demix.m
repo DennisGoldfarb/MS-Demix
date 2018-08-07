@@ -1,24 +1,28 @@
-function demix(outPath, path, specStart, numJobs, numScans,algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol)
-    % setup cvx
+function demix(outPath, path, specStart, numJobs, numScans,algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol, copy)
+  % setup cvx
   install_cvx()
 
   filename = strcat(num2str(specStart), '.mgf');
   fileID = fopen(strcat(outPath, '/', filename), 'w');
-
+  %Rout = fopen(strcat(outPath, '/', num2str(specStart), '.tab'), 'w');
+  Rout = 1
   for i=specStart:numJobs:numScans
         if exist(strcat(path, num2str(i), '.tab'), 'file')
-	  demix_spectrum(path, fileID, num2str(i), algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol);
+	  demix_spectrum(path, fileID, num2str(i), algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol, copy, Rout);
         end
     end
 
   fclose(fileID);
+  %fclose(Rout);
 end
 
-function demix_spectrum(path, outFile, expName, algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol)
+function demix_spectrum(path, outFile, expName, algName, lambda1, lambda2, alpha, deisotope, calcPrecursorMass, globalTol, copy, Rout)
     % read in vector b
     fileID = fopen(strcat(path, 'b_', expName, '.bin'));
     b = (fread(fileID, 'double'));
     fclose(fileID);
+    minObs = min(b(b>0))-1;
+    %b(b>0) = b(b>0) - minObs;
     n = size(b, 1);
     % read in matrix A
     fileID = fopen(strcat(path, 'A_', expName, '.bin'));
@@ -43,53 +47,73 @@ function demix_spectrum(path, outFile, expName, algName, lambda1, lambda2, alpha
     % read in mzValues
     mzValues = importdata(strcat(path, 'mz_', expName, '.tab'));
 
+    if size(indices,1) > 1
     %if size(indices,1) <= 1
     %    [x, cvx_status] = NNLS(A, b, m);
-    if strcmp(algName, 'OLS')
-        [x, cvx_status] = OLS(A, b, m);
-    elseif strcmp(algName, 'NNLS')
-        [x, cvx_status] = NNLS(A, b, m);  
-    elseif strcmp(algName, 'NNLS-A')
-        [x, cvx_status] = NNLS_A(A, b, m, lambda1, precursorOptions, indices);
-    elseif strcmp(algName, 'NNLS-L1')
-        [x, cvx_status] = NNLS_L1(A, b, m, lambda1);
-    elseif strcmp(algName, 'NNLS-wL1')
-        [x, cvx_status] = NNLS_weighted_L1(A, b, m, groupWeights, indices, lambda1);
-    elseif strcmp(algName, 'NNLS-wL1-wL2')
-        [x, cvx_status] = NNLS_weighted_L1_L2(A, b, m, groupWeights, indices, lambda1, lambda2);
-    elseif strcmp(algName, 'NNLS-Linf')
-        [x, cvx_status] = NNLS_group_inf(A, b, m, groupWeights, indices, lambda1);
-    elseif strcmp(algName, 'NNLS-wLinf')
-        [x, cvx_status] = NNLS_weight_group_inf(A, b, m, groupWeights, indices, lambda1);
-    elseif strcmp(algName, 'NNLS-L1-Linf')
-        [x, cvx_status] = NNLS_L1_group_inf(A, b, m, groupWeights, indices, lambda1, lambda2);
-    elseif strcmp(algName, 'NNLS-wL1-Linf')
-        [x, cvx_status] = NNLS_weighted_L1_group_inf(A, b, m, groupWeights, indices, lambda1, lambda2);
-    elseif strcmp(algName, 'NNLS-L1-wLinf')
-        [x, cvx_status] = NNLS_L1_weighted_group_inf(A, b, m, groupWeights, indices, lambda1, lambda2);
-    elseif strcmp(algName, 'NNLS-wL1-wLinf')
-        [x, cvx_status] = NNLS_weighted_L1_weighted_group_inf(A, b, m, groupWeights, indices, lambda1);
-    elseif strcmp(algName, 'NNLS-sparseGroupLasso')
-        [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, indices, lambda1, lambda2, alpha);
+        if strcmp(algName, 'OLS')
+            [x, cvx_status] = OLS(A, b, m);
+        elseif strcmp(algName, 'NNLS')
+            [x, cvx_status] = NNLS(A, b, m, indices, precursorOptions, 2.0, lambda1);  
+        elseif strcmp(algName, 'NNLS-A')
+            [x, cvx_status] = NNLS_A(A, b, m, lambda1, precursorOptions, indices);
+        elseif strcmp(algName, 'NNLS-L1')
+            [x, cvx_status] = NNLS_L1(A, b, m, lambda1, indices, precursorOptions, 2.0);
+        elseif strcmp(algName, 'NNLS-wL1')
+            [x, cvx_status] = NNLS_weighted_L1(A, b, m, groupWeights, indices, lambda1);
+        elseif strcmp(algName, 'NNLS-wL1-wL2')
+            [x, cvx_status] = NNLS_weighted_L1_L2(A, b, m, groupWeights, indices, lambda1, lambda2);
+        elseif strcmp(algName, 'NNLS-Linf')
+            [x, cvx_status] = NNLS_group_inf(A, b, m, groupWeights, indices, lambda1);
+        elseif strcmp(algName, 'NNLS-wLinf')
+            [x, cvx_status] = NNLS_weight_group_inf(A, b, m, groupWeights, indices, lambda1);
+        elseif strcmp(algName, 'NNLS-L1-Linf')
+            [x, cvx_status] = NNLS_L1_group_inf(A, b, m, groupWeights, indices, lambda1, lambda2);
+        elseif strcmp(algName, 'NNLS-wL1-Linf')
+            [x, cvx_status] = NNLS_weighted_L1_group_inf(A, b, m, groupWeights, indices, lambda1, lambda2);
+        elseif strcmp(algName, 'NNLS-L1-wLinf')
+            [x, cvx_status] = NNLS_L1_weighted_group_inf(A, b, m, groupWeights, indices, lambda1, lambda2);
+        elseif strcmp(algName, 'NNLS-wL1-wLinf')
+            [x, cvx_status] = NNLS_weighted_L1_weighted_group_inf(A, b, m, groupWeights, indices, lambda1);
+        elseif strcmp(algName, 'NNLS-sparseGroupLasso')
+            [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, indices, lambda1, lambda2, alpha, precursorOptions, 2);
+        elseif strcmp(algName, 'NNLS-sparseGroupLasso2')
+            [x, cvx_status] = NNLS_sparse_group_lasso2(A, b, m, n, indices, lambda1, lambda2, alpha, precursorOptions, 2);
+        end
     end
-    
-    %if strcmp(cvx_status, 'Solved')
-      %    outputCoefficients(A, x, b, indices, precursorOptions, algName, expName); 
+
+    %if size(indices,1) == 1
+    %    [x, cvx_status] = NNLS(A, b, m);
     %end
 
-    if strcmp(cvx_status, 'Solved') && size(indices,1) > 1
+    if size(indices,1) > 1 && strcmp(cvx_status, 'Solved')
+    %if strcmp(cvx_status, 'Solved') 
         if deisotope
             spectra = computeMonoSpectra(A, x, indices);
         else
             spectra = computeSpectra(A, x, indices);
         end
 
-        writeMGF(spectra, mzValues, precursorOptions, calcPrecursorMass, scanDetails, outFile, globalTol);
+        writeMGF(spectra, mzValues, precursorOptions, calcPrecursorMass, scanDetails, outFile, globalTol, copy, b, minObs);
+
         %plotSpectra(spectra, b, precursorOptions, algName, expName, outPath);
+        %writeR(spectra, mzValues, precursorOptions, scanDetails, Rout, b);
+
+        %monoSpectra = computeMonoSpectra(A, x, indices);
+        %spectra = computeSpectra(A, x, indices);
+            
+        %writeMGF2(spectra, monoSpectra, mzValues, precursorOptions, calcPrecursorMass, scanDetails, outFile, globalTol, copy, b, minObs); 
+
+
     else
         writeOriginalMGF(b, mzValues, scanDetails, outFile, globalTol);
     end
 
+    %sprintf("Conditioning: ")
+    %dA = decomposition(A);
+    %isIllConditioned(dA)
+    %rank(dA)
+    %min(size(A))
+    %cond(A)
 
 end
 
@@ -109,24 +133,30 @@ function [x, cvx_status] = OLS(A, b, m)
 end
 
 
-function [x, cvx_status] = NNLS(A, b, m)
+function [x, cvx_status] = NNLS(A, b, m, indices, precursorOptions, fudge, lambda)
     cvx_begin
         variable x(m);
         minimize( norm(A*x-b) );
         subject to
             x >= 0;
     cvx_end
+    sprintf("TIC: %f", sum(A*x)/sum(b))
 end
 
 
 % NNLS + L1 penalty
-function [x, cvx_status] = NNLS_L1(A, b, m, lambda)
+function [x, cvx_status] = NNLS_L1(A, b, m, lambda, indices, precursorOptions, fudge)
+
+    lambda = lambda / 2^(size(indices,1) - 2); 
+
     cvx_begin
         variable x(m);
         minimize( norm(A*x-b) + (lambda * norm(x,1)));
         subject to
-            x >= 0;
+            x >= 0; 
     cvx_end
+
+    sprintf("TIC: %f", sum(A*x)/sum(b))
 end
 
 
@@ -252,13 +282,20 @@ function [x, cvx_status] = NNLS_weighted_L1_weighted_group_inf(A, b, m, groupWei
 end
 
 % NNLS sparse group lasso
-function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, indices, lambda1, lambda2, alpha)
+function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, indices, lambda1, lambda2, alpha, precursorOptions, fudge)
+    TIC = sum(b);
+    tot_option_abundance = 0.0;
+    
+    for i=1:size(indices,1)
+        tot_option_abundance = tot_option_abundance + precursorOptions(i, 8);
+    end
+
     cvx_begin
         cvx_solver_settings('maxit', 1000);
      
         variable x(m);
-        objective = 0;
-        %objective = norm(A*x-b);
+        %objective = 0;
+        objective = norm(A*x-b);
         for i=1:size(indices,1)
             
             i1 = indices(i,1)+1;
@@ -273,8 +310,85 @@ function [x, cvx_status] = NNLS_sparse_group_lasso(A, b, m, n, indices, lambda1,
         end
         minimize(objective);
         subject to
-            x >= 0;
+            x >= min(b(b>0));
+            for i=1:size(indices,1)
+                i1 = indices(i,1)+1; 
+                i2 = indices(i,2)+1;
+                xi = x(i1:i2);
+                Ai = A(:,i1:i2);
+
+                norm(Ai*xi) <= (precursorOptions(i,8)/tot_option_abundance) * TIC * fudge;
+            end
     cvx_end
+
+    sprintf("TIC: %f", sum(A*x)/sum(b)) 
+end
+
+% NNLS sparse group lasso2                                                                                                                                  
+function [x, cvx_status] = NNLS_sparse_group_lasso2(A, b, m, n, indices, lambda1, lambda2, alpha, precursorOptions, fudge)
+    TIC = sum(b);
+
+    tot_option_abundance = 0.0;
+
+    for i=1:size(indices,1)
+        tot_option_abundance = tot_option_abundance + precursorOptions(i, 8);
+    end
+
+    %lambda1 = lambda1 / 2^(size(indices,1) - 2);
+    %lambda2 = lambda2 / 2^(size(indices,1) - 2);
+    %lambda1 = lambda1 / (size(indices,1) - 1);
+    %lambda2 = lambda2 / (size(indices,1) - 1); 
+
+
+    cvx_begin
+        variable x(m);
+        %objective = (1-alpha)*lambda2*norm(x,2) + alpha*lambda2*norm(x,1);
+        objective = norm(A*x-b) + lambda2*norm(x,1);     % + (1-alpha)*lambda2*norm(x,2) + alpha*lambda2*norm(x,1);
+        %objective = lambda2*norm(x,1);
+
+
+
+%        for i=1:m
+%            posA = A(:,i) > 0;
+%            for k=1:size(posA, 1)
+%                j = posA(k);
+%                if b(j) > 0
+%                    objective = objective + lambda1 * norm(A(j,i) * x(i) - b(j), 2);
+%                end
+%            end
+%        end
+
+
+        for i=1:m
+            posA = A(:,i) > 0;            
+            objective = objective + lambda1 * norm(A(posA,i)*x(i) - b(posA));
+        end
+
+
+
+
+        %for i=1:size(indices,1)
+        %     i1 = indices(i,1)+1;
+        %     i2 = indices(i,2)+1;
+        %     xi = x(i1:i2);
+        %     
+        %     objective = objective + 0.01 * norm(xi, inf);
+        %end
+
+        minimize(objective);
+        subject to
+            x >= 0; 
+            %for i=1:size(indices,1) 
+            %    i1 = indices(i,1)+1;
+            %    i2 = indices(i,2)+1;
+            %    xi = x(i1:i2);
+            %    Ai = A(:,i1:i2);
+            %    
+            %    norm(Ai*xi) <= (precursorOptions(i,8)/tot_option_abundance) * TIC * fudge;
+            % end
+    cvx_end
+
+    sprintf("TIC: %f", sum(A*x)/sum(b))     
 end
 
 % NNLS with relative abundance penalty
@@ -290,11 +404,58 @@ function [x, cvx_status] = NNLS_A(A, b, m, lambda1, precursorOptions, indices)
     cvx_end
 end
 
-function writeMGF(spectra, mzValues, precursorOptions, calcPrecursorMass, scanDetails, outFile, globalTol)
+function writeRSpectrum(spectrum, mzValues, scanDetails, fileID, name)
+    for j=1:size(spectrum,1)
+        if spectrum(j) >= 1
+            fprintf(fileID, '%f\t%f\t%d\t%s\n', mzValues(j)-0.0001, 0.0, scanDetails(1), name);
+            fprintf(fileID, '%f\t%f\t%d\t%s\n', mzValues(j), spectrum(j), scanDetails(1), name);
+            fprintf(fileID, '%f\t%f\t%d\t%s\n', mzValues(j)+0.0001, 0.0, scanDetails(1), name); 
+        end
+    end
+end
+
+function writeR(spectra, mzValues, precursorOptions, scanDetails, outFile, b)
+    writeRSpectrum(b, mzValues, scanDetails, outFile, "observed");
     spectra(spectra<1) = 0;
     for i=1:size(spectra,2)
-        if sum(spectra(:, i)) > 0
-            writeMGFSpectrum(spectra(:,i), precursorOptions(i,:), mzValues, scanDetails, num2str(i), calcPrecursorMass, outFile, globalTol);    
+        if sum(spectra(:, i)) > min(b(b>0))
+            charge = precursorOptions(i,5);
+            
+            title = strcat(['demixed=', num2str(i), ' charge=', num2str(charge), ' mass=', num2str(precursorOptions(i,1)), ' iso=', num2str(precursorOptions(i,3)), '-', num2str(precursorOptions(i,4))]);
+            writeRSpectrum(spectra(:,i), mzValues, scanDetails, outFile, title);
+        end
+    end
+end 
+
+
+function writeMGF2(spectra, monoSpectra, mzValues, precursorOptions, calcPrecursorMass, scanDetails, outFile, globalTol, copy, b, minObs)
+    spectra(spectra<minObs) = 0;
+    monoSpectra(monoSpectra<minObs) = 0;
+    for i=1:size(spectra,2)
+        if sum(spectra(:, i)) > min(b(b>0))
+            if copy
+                writeMGFSpectrum(b, precursorOptions(i,:), mzValues, scanDetails, num2str(i), calcPrecursorMass, outFile, globalTol);
+            else
+                if precursorOptions(i,3) == 0
+                    writeMGFSpectrum(spectra(:,i), precursorOptions(i,:), mzValues, scanDetails, num2str(i), calcPrecursorMass, outFile, globalTol);
+                else
+                    writeMGFSpectrum(monoSpectra(:,i), precursorOptions(i,:), mzValues, scanDetails, num2str(i), calcPrecursorMass, outFile, globalTol);
+                end
+            end
+        end
+    end
+end
+
+function writeMGF(spectra, mzValues, precursorOptions, calcPrecursorMass, scanDetails, outFile, globalTol, copy, b, minObs)
+    spectra(spectra<1) = 0; 
+    %spectra(spectra<minObs) = 0;
+    for i=1:size(spectra,2)
+        if sum(spectra(:, i)) > min(b(b>0))
+            if copy
+                writeMGFSpectrum(b, precursorOptions(i,:), mzValues, scanDetails, num2str(i), calcPrecursorMass, outFile, globalTol);  
+            else
+                writeMGFSpectrum(spectra(:,i), precursorOptions(i,:), mzValues, scanDetails, num2str(i), calcPrecursorMass, outFile, globalTol);    
+            end
         end
     end
 end

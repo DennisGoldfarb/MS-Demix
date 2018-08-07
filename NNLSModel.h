@@ -12,7 +12,8 @@
 #include <OpenMS/KERNEL/MSSpectrum.h>
 
 #include "OpenMS/MATH/MISC/MathFunctions.h"
-#include "OpenMS/CHEMISTRY/IsotopeDistribution.h"
+#include "OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/IsotopeDistribution.h"
+#include "OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/CoarseIsotopePatternGenerator.h"
 
 #include "PrecursorTargetOptions.h"
 #include "MultiplexedScan.h"
@@ -36,10 +37,14 @@ public:
     double massTolerance;
     MassToleranceUnit unit;
     int numCol;
+    double minIntensity = 1e9;
 
     std::vector<double> b;
     std::vector<double> mzValues;
     std::vector<DictionaryElement> A;
+
+    std::vector<double> b2;
+    std::vector<double> mzValues2;
 
     MultiplexedScan scan;
     std::vector<PrecursorTargetOptions> options;
@@ -56,6 +61,7 @@ public:
 private:
     void init_b();
     void init_A();
+    void initOptions(PrecursorTargetOptions options);
 
     void Bcontains(double mz, int indexB);
 };
